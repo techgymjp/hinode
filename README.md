@@ -1,5 +1,7 @@
 # 日の出・月の出シミュレーター
 
+Web 版: https://techgymjp.github.io/hinode/ ／ Android アプリ（動作確認用 APK）: 下の「Android アプリ」
+
 山や建物の地形を考慮して、**太陽や月が実際に稜線から顔を出す・沈む時刻と方角**を、日付と分刻みの時刻でシミュレーションするWebツールです。
 [山探し（techgymjp/yama）](https://github.com/techgymjp/yama) の景色描画システム（国土地理院の標高タイル・空中写真による360°の景色）を使っています。
 
@@ -29,7 +31,7 @@
 
 ## 開発・公開
 
-ビルド不要です。リポジトリのルートをそのまま静的サーバで配信すれば動きます（ES モジュール・モジュール Worker を使うため、ファイルを直接開くのではなくサーバ経由で）。
+Web 版はビルド不要です。リポジトリのルートをそのまま静的サーバで配信すれば動きます（ES モジュール・モジュール Worker を使うため、ファイルを直接開くのではなくサーバ経由で）。
 
 ```bash
 python3 -m http.server 8000   # http://localhost:8000/ を開く
@@ -37,6 +39,40 @@ python3 -m http.server 8000   # http://localhost:8000/ を開く
 
 GitHub Pages は「Deploy from a branch: main / (root)」で公開しています（`main` に push すると反映）。
 Leaflet は `vendor/leaflet/` に同梱しています。位置情報とコンパスは HTTPS（または localhost）でのみ動作します。
+
+## Android アプリ
+
+[Capacitor](https://capacitorjs.com/) 8 で Web 版をそのままアプリに同梱しています（縦画面固定、パッケージ名 `jp.techgym.hinode`）。
+構成は techgymjp/jet-fighter の `docs/ANDROID_PORTING.md` と同じです。
+
+- 動作確認用 APK（テスト広告・デバッグ署名）：リリース画面 https://github.com/techgymjp/hinode/releases/tag/android-latest
+  - APK 直接：https://github.com/techgymjp/hinode/releases/latest/download/hinode.apk
+  - スマホで読み取る QR コード（リリース画面）：
+
+    ![APK のリリース画面](docs/apk-qr.png)
+
+- `main` に push すると GitHub Actions（`.github/workflows/android.yml`）が APK をビルドし、Release `android-latest` の APK を差し替えます
+- GitHub Secrets（`ANDROID_KEYSTORE_BASE64` ほか 4 つ）を登録すると、本番広告の署名付き AAB（Google Play 用）も Artifacts `hinode-release-aab` に作られます
+- `npm run build:app`：`index.html` `src/` `vendor/` を `www/` にまとめ、Web 版だけの部分（`// web-only:start` 〜 `// web-only:end` などで囲んだデバッグ用コード）を取り除く
+- `npm run android:sync`：`www/` を Android プロジェクトへコピー（Android Studio で開くときは `npm run android:open`）
+- アイコン・起動画面は `assets/` の画像から `npx @capacitor/assets generate --android` で生成
+
+### アプリだけの動き
+
+- 戻るボタン：月間表・ダイヤモンド予報・地図を閉じる → 景色からはトップへ → トップではアプリを終了
+- 別のアプリに切り替えたら、時刻の再生・コンパス追従・音を止める
+- 共有：Android の共有メニューで、Web 版の URL（地点・日時・向き入り）を送る
+- スタート画面にバージョン（ビルド番号）とプライバシーポリシー、EU など同意が必要な地域では「広告の設定」
+- 広告（`src/ads.js`。AdMob。本番の広告ユニット ID が空の種類は本番ビルドで出さない）
+  - バナー：スタート画面と、月間表・ダイヤモンド予報を開いている間だけ（画面の下中央）
+  - 全画面広告：トップから景色を見始めるとき、景色からトップへ戻るとき（毎回）
+  - リワード広告：ダイヤモンド・パール予報は 2 か月分まで無料で、広告を最後まで見ると 1 年分を探せる
+
+## ライセンス
+
+著作権はテックジム株式会社に帰属します（All rights reserved）。許可なく複製・改変・再配布すること、Web サイトやアプリ（Google Play、App Store など）として公開・販売すること、名前・ロゴ・アイコン・画像を使うことを禁止します。
+テックジムの受講生が学習目的で複製・改変することは許可します（アプリストアでの公開・広告の掲載・販売などの商用利用は禁止、著作権表示を残すこと）。
+同梱している Leaflet などは、それぞれのライセンスのままです。詳しくは [LICENSE](LICENSE) を見てください。
 
 ## データの出典
 

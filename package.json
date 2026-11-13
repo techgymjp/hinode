@@ -1,19 +1,27 @@
 {
   "name": "hinode",
   "version": "1.0.0",
-  "description": "地形を考慮した日の出・日の入り・月の出・月の入り・月齢のシミュレーター",
+  "private": true,
+  "description": "日の出・月の出シミュレーター 地形を考慮した日の出・日の入り・月の出・月の入り・月齢（Web / Android）",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node scripts/build-web.js",
+    "build:app": "APP_BUILD=1 node scripts/build-web.js",
+    "android:sync": "npm run build:app && npx cap sync android",
+    "android:open": "npx cap open android",
+    "serve": "npx --yes serve -l 8000 ."
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/techgymjp/hinode.git"
   },
-  "devDependencies": {
-    "vite": "^8.3.8"
+  "dependencies": {
+    "@capacitor-community/admob": "^8.2.1",
+    "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/share": "8.0.3"
   },
-  "private": true,
-  "type": "module"
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
 }

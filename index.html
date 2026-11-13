@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="./vendor/leaflet/leaflet.css" />
   <link rel="stylesheet" href="./src/style.css" />
   <script src="./vendor/leaflet/leaflet.js"></script>
+  <script src="./src/ads-config.js"></script>
+  <script src="./src/build-info.js"></script>
+  <script src="./src/ads.js"></script>
 </head>
 <body>
   <!-- 景色 -->
@@ -107,11 +110,12 @@
         <div class="modal-title">ダイヤモンド・パール予報</div>
         <button id="btn-align-close" class="close" aria-label="閉じる">×</button>
       </div>
-      <div class="modal-note">ここから見える山の山頂に、太陽（ダイヤモンド）や月（パール）が重なる日時を、選んだ日から1年分探します。タップするとその瞬間へ移動します。</div>
+      <div class="modal-note" id="align-note">ここから見える山の山頂に、太陽（ダイヤモンド）や月（パール）が重なる日時を、選んだ日から1年分探します。タップするとその瞬間へ移動します。</div>
       <div class="align-pick">
         <select id="align-peak" aria-label="山を選ぶ"></select>
         <button id="btn-align-run" class="primary">探す</button>
       </div>
+      <button id="btn-align-year" class="reward hidden">▶ 広告を見て1年分を探す</button>
       <div id="align-body" class="modal-scroll"></div>
     </div>
   </div>
@@ -151,6 +155,11 @@
           </select>
         </label>
       </details>
+      <div class="app-foot">
+        <span id="app-version"></span>
+        <a href="https://techgym.jp/privacy-policy/" target="_blank" rel="noopener">プライバシーポリシー</a>
+        <button id="btn-ad-privacy" class="link hidden">広告の設定</button>
+      </div>
     </div>
   </div>
 

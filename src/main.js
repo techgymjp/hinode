@@ -9,11 +9,22 @@ import {
   JST, jstMidnight, jstParts, fmtHM,
 } from './astro.js';
 
+// ---------------- アプリ（Android）のときだけ使う機能 ----------------
+// バンドラーを使わないので、ネイティブの機能は window.Capacitor.Plugins から呼ぶ。Web 版では何もしない
+const CAP = window.Capacitor;
+const IS_APP = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform());
+const Plugins = (IS_APP && CAP.Plugins) || {};
+// 共有する URL は公開している Web 版（アプリの中の URL はほかの人には開けないため）
+const SHARE_BASE = 'https://techgymjp.github.io/hinode/';
+const Ads = window.Ads || { available: false, canReward: false, showInterstitial: async () => {}, showRewarded: async () => 'unavailable', setBanner() {}, setHooks() {}, showPrivacyOptions: async () => {}, privacyOptionsRequired: false, initDone: Promise.resolve() };
+if (IS_APP) document.body.classList.add('app');
+
 // ---------------- サウンド（BGM・効果音） ----------------
 const audio = createBgm();
 const pref = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v === '1'; } catch { return def; } };
 const savePref = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* 保存できない環境 */ } };
 let bgmOn = pref('hinode.bgm', true);
+Ads.setHooks({ suspend: () => audio.suspend(), resume: () => { if (!document.hidden) audio.resume(); } });
 let sfxOn = pref('hinode.sfx', true);
 const sfx = (name) => { if (sfxOn) audio.sfx(name); };
 let lastTick = 0;
@@ -1096,16 +1107,22 @@ function openAlign() {
     if (i >= 0) sel.value = String(i);
   }
   $('align-body').innerHTML = '';
+  $('btn-align-year').classList.add('hidden');
+  $('align-note').textContent = `ここから見える山の山頂に、太陽（ダイヤモンド）や月（パール）が重なる日時を、選んだ日から${Ads.canReward ? '2か月分（広告を見ると1年分）' : '1年分'}探します。タップするとその瞬間へ移動します。`;
   $('align-modal').classList.remove('hidden');
 }
-async function runAlign() {
+// アプリでは、ふだんは 2 か月分を探し、リワード広告を最後まで見ると 1 年分を探せる（Web 版は広告なしで 1 年分）
+const ALIGN_FREE_DAYS = 61, ALIGN_YEAR_DAYS = 366;
+const alignDays = () => (Ads.canReward ? ALIGN_FREE_DAYS : ALIGN_YEAR_DAYS);
+async function runAlign(days = alignDays()) {
   const sel = $('align-peak');
   const p = sel._list && sel._list[+sel.value];
   if (!p) return;
   sfx('click');
-  $('align-body').innerHTML = '<div class="ev-wait">1年分を計算中…</div>';
+  const span = days >= 365 ? '1年分' : `${Math.round(days / 30.4)}か月分`;
+  $('align-body').innerHTML = `<div class="ev-wait">${span}を計算中…</div>`;
   const peakAlt = Math.atan(p.tanAlt) / DEG;
-  const r = await call({ type: 'align', az: p.az, alt: peakAlt, t0: state.dayT0, days: 366 });
+  const r = await call({ type: 'align', az: p.az, alt: peakAlt, t0: state.dayT0, days });
   // 地平線（山頂の稜線）より下を通るもの・太陽の高い日中の月は見えにくいので印を付ける
   const rows = r.list.map((a) => {
     const pp = jstParts(a.t);
@@ -1123,7 +1140,8 @@ async function runAlign() {
   });
   $('align-body').innerHTML = rows.length
     ? `<ul class="align-list">${rows.join('')}</ul>`
-    : '<div class="ev-wait">1年以内に山頂に重なる日はありません（太陽・月が通らない方角です）</div>';
+    : `<div class="ev-wait">${span}の間に山頂に重なる日はありません${days >= 365 ? '（太陽・月が通らない方角です）' : ''}</div>`;
+  $('btn-align-year').classList.toggle('hidden', !(Ads.canReward && days < 365));
   if (rows.length) sfx('found');
   $('align-body').querySelectorAll('li[data-t]').forEach((li) => li.addEventListener('click', () => {
     sfx('jump');
@@ -1135,14 +1153,21 @@ async function runAlign() {
   }));
 }
 $('btn-align').addEventListener('click', () => { sfx('open'); stopPlay(); openAlign(); });
-$('btn-align-run').addEventListener('click', runAlign);
+$('btn-align-run').addEventListener('click', () => runAlign());
+$('btn-align-year').addEventListener('click', async () => {
+  sfx('click');
+  const r = await Ads.showRewarded();
+  if (r === 'rewarded') runAlign(ALIGN_YEAR_DAYS);
+  else if (r === 'unavailable') toast('いまは広告を読み込めませんでした。しばらくしてからお試しください', 'bad', 3000);
+});
 $('btn-align-close').addEventListener('click', () => { sfx('close'); closeModal('align-modal'); });
 for (const id of ['table-modal', 'align-modal']) {
   $(id).addEventListener('click', (e) => { if (e.target.id === id) { sfx('close'); closeModal(id); } });
 }
 
 // ---------------- トップページへ戻る ----------------
-$('btn-home').addEventListener('click', () => {
+$('btn-home').addEventListener('click', () => goHome());
+async function goHome() {
   sfx('close');
   stopPlay();
   if (follow) setFollow(false);
@@ -1151,7 +1176,8 @@ $('btn-home').addEventListener('click', () => {
   // 表示していた日付をスタート画面に引き継ぐ
   $('start-date').value = dateStr(state.dayT0);
   $('start').classList.remove('hidden');
-});
+  await Ads.showInterstitial(3000);
+}
 
 // ---------------- そのほかのボタン ----------------
 $('btn-labels').addEventListener('click', () => {
@@ -1176,7 +1202,11 @@ $('btn-bgm').addEventListener('click', () => {
 updateBgmButton();
 $('opt-sfx').checked = sfxOn;
 $('opt-sfx').addEventListener('change', () => { sfxOn = $('opt-sfx').checked; savePref('hinode.sfx', sfxOn); sfx('on'); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) audio.suspend(); else audio.resume(); });
+// 別のアプリに切り替えたら、再生（時間を進める）と音を止める
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { stopPlay(); if (follow) setFollow(false); audio.suspend(); }
+  else if (!Ads.showing) audio.resume();
+});
 // 設定の開閉・選択にも効果音
 document.querySelector('.settings summary').addEventListener('click', () => sfx('click'));
 for (const id of ['opt-source', 'opt-snow']) $(id).addEventListener('change', () => sfx('click'));
@@ -1206,9 +1236,14 @@ function readHash() {
 $('btn-share').addEventListener('click', async () => {
   sfx('click');
   updateHash();
-  const url = location.href;
+  const url = IS_APP ? SHARE_BASE + location.hash : location.href;
   const p = jstParts(state.t);
   const text = `${state.obs.name || '選択地点'}の${p.m}月${p.d}日 ${fmtHM(state.t)} の空 #日の出月の出シミュレーター`;
+  if (Plugins.Share) {
+    // アプリでは Android の共有メニューを出す
+    try { await Plugins.Share.share({ title: '日の出・月の出シミュレーター', text, url, dialogTitle: '共有' }); } catch { /* 閉じた */ }
+    return;
+  }
   if (navigator.share) {
     try { await navigator.share({ title: '日の出・月の出シミュレーター', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
@@ -1291,6 +1326,9 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
   $('picker').classList.add('hidden');
   $('loading').classList.remove('hidden');
   $('loading-bar').style.width = '0%';
+  // 見始めるときに全画面広告（読み込めていなければ最大 3 秒だけ待ち、だめなら出さない）
+  $('loading-text').textContent = '準備中…';
+  await Ads.showInterstitial(3000);
   $('loading-text').textContent = `${name ? name + ' の' : ''}地形データを読み込み中…`;
   stopPlay();
   if (follow) setFollow(false);
@@ -1530,7 +1568,38 @@ $('opt-buildings').addEventListener('change', () => {
   if (state.obs) { invalidate(); refreshTerrainDependent(); }
 });
 resize();
-window.__hinode = state; // デバッグ用
+// web-only:start
+window.__hinode = state; // デバッグ・動作確認用（アプリには入れない）
+// web-only:end
+
+// ---------------- アプリ: 戻るボタン・バナー・バージョン表示 ----------------
+$('app-version').textContent = window.APP_VERSION && window.APP_VERSION !== 'web' ? window.APP_VERSION : '';
+// 戻るボタン: 開いている画面を閉じる → 景色からはトップへ → トップではアプリを終了
+if (Plugins.App) {
+  Plugins.App.addListener('backButton', () => {
+    if (!$('loading').classList.contains('hidden')) return;
+    for (const id of ['table-modal', 'align-modal']) {
+      if (!$(id).classList.contains('hidden')) { sfx('close'); closeModal(id); return; }
+    }
+    if (!$('picker').classList.contains('hidden')) { $('btn-picker-cancel').click(); return; }
+    if ($('start').classList.contains('hidden') && state.obs) { goHome(); return; }
+    Plugins.App.exitApp();
+  });
+}
+// バナー広告: スタート画面と、月間表・ダイヤモンド予報を開いている間だけ（下中央）
+function syncBanner() {
+  const shown = (id) => !$(id).classList.contains('hidden');
+  const want = (shown('start') && !shown('picker') && !shown('loading')) || shown('table-modal') || shown('align-modal');
+  Ads.setBanner(want);
+}
+{
+  const mo = new MutationObserver(syncBanner);
+  for (const id of ['start', 'picker', 'loading', 'table-modal', 'align-modal']) mo.observe($(id), { attributes: true, attributeFilter: ['class'] });
+  syncBanner();
+}
+// EU など同意が必要な地域では、スタート画面に「広告の設定」を出す
+Ads.initDone.then(() => { if (Ads.privacyOptionsRequired) $('btn-ad-privacy').classList.remove('hidden'); });
+$('btn-ad-privacy').addEventListener('click', () => { sfx('click'); Ads.showPrivacyOptions(); });
 // 下部パネルの高さ（高さボタン・トーストの位置合わせ用）
 new ResizeObserver(() => {
   document.documentElement.style.setProperty('--timebar-h', `${$('timebar').offsetHeight}px`);

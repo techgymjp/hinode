@@ -201,3 +201,13 @@ canvas.mini-moon { width: 18px; height: 18px; vertical-align: middle; margin-rig
   .info-time b { font-size: 20px; }
   .ev b { font-size: 15px; }
 }
+
+/* プライバシーポリシー・バージョン・広告の設定 */
+.app-foot { display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; font-size: 12px; opacity: 0.85; }
+.app-foot a { color: #fff; }
+button.link { background: none; padding: 0; text-decoration: underline; font-size: 12px; }
+button.reward { margin: 8px 12px 0; padding: 10px; background: #ffd166; color: #1d2b3a; font-weight: 800; }
+
+/* Android アプリ: 画面の下中央のバナー広告（高さ 50dp）と重ならないように */
+body.app #start { padding-bottom: 76px; }
+body.app .modal { padding-bottom: 62px; }

@@ -1,0 +1,8 @@
+{
+  "appId": "jp.techgym.hinode",
+  "appName": "日の出月の出",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0b1430"
+  }
+}

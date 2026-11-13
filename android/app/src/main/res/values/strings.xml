@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">日の出月の出</string>
+    <string name="title_activity_main">日の出月の出</string>
+    <string name="package_name">jp.techgym.hinode</string>
+    <string name="custom_url_scheme">jp.techgym.hinode</string>
+    <!-- AdMob のアプリ ID。本番の ID は AdMob でアプリを登録したら差し替える（いまは Google 公式のテスト用 ID） -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+</resources>
