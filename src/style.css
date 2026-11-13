@@ -1,0 +1,197 @@
+:root {
+  --bg: #0f1d2e;
+  --fg: #f4f6fa;
+  --accent: #f08a4b;
+  --accent2: #2a9d8f;
+  --sun: #ffb347;
+  --moon: #b9d4ff;
+  --glass: rgba(12, 22, 38, 0.74);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+  font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  overscroll-behavior: none;
+}
+button {
+  font: inherit; border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer;
+  background: rgba(255,255,255,0.14); color: var(--fg);
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+button:active { transform: scale(0.96); }
+button:disabled { opacity: 0.4; }
+button.primary { background: var(--accent); font-weight: 700; }
+button.secondary { background: rgba(255,255,255,0.16); }
+button.on { background: var(--accent2) !important; }
+select, input[type=date] { font: inherit; color: #1d2b3a; background: #f4f6fa; border: 0; border-radius: 8px; padding: 6px 8px; }
+.hidden { display: none !important; }
+
+#view { position: fixed; inset: 0; touch-action: none; }
+#view canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* 左上: 情報 */
+#info {
+  position: fixed; top: calc(8px + var(--safe-top)); left: 8px; max-width: calc(100vw - 112px);
+  background: var(--glass); border-radius: 14px; padding: 8px 12px; pointer-events: none;
+  backdrop-filter: blur(6px); font-size: 12px; line-height: 1.45;
+}
+.info-place { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-time { font-size: 14px; font-weight: 700; }
+.info-time b { font-size: 26px; color: #ffd166; font-variant-numeric: tabular-nums; margin-left: 4px; }
+.info-row { display: flex; align-items: center; gap: 6px; white-space: pre-line; margin-top: 3px; }
+.info-row .ico { width: 22px; text-align: center; color: var(--sun); font-size: 18px; flex: none; }
+.info-row.moon span { color: #dbe7ff; }
+#moon-icon { width: 22px; height: 22px; flex: none; }
+
+/* コンパス */
+#compass {
+  position: fixed; top: calc(8px + var(--safe-top)); right: 10px; width: 84px; text-align: center;
+  pointer-events: none;
+}
+#compass svg { width: 72px; height: 72px; filter: drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+#compass .ring { fill: rgba(15,29,46,0.7); stroke: rgba(255,255,255,0.7); stroke-width: 2; }
+#compass text { fill: #fff; font-size: 12px; font-weight: 700; text-anchor: middle; }
+#compass text.n { fill: #ff6b6b; }
+#compass .needle-n { fill: #ff6b6b; }
+#compass .needle-s { fill: #ddd; }
+#compass .c-sun { fill: #ffb347; stroke: #fff3; }
+#compass .c-moon { fill: #dbe7ff; stroke: #fff3; }
+#compass .fov { fill: rgba(255, 209, 102, 0.28); }
+#compass .marker { fill: #ffd166; }
+#compass-label { font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px #000; }
+
+/* 高さ調整（右、下部パネルの上） */
+#height-ctrl {
+  position: fixed; right: calc(8px + env(safe-area-inset-right, 0px)); bottom: calc(var(--timebar-h, 170px) + 10px + var(--safe-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: 5px; width: 92px;
+}
+#height-ctrl button { width: 46px; height: 46px; padding: 0; font-size: 18px; background: var(--glass); }
+#height-label {
+  background: rgba(10, 20, 34, 0.85); padding: 4px 6px; border-radius: 10px; text-align: center;
+  line-height: 1.25; width: 100%; font-weight: 700; text-shadow: 0 1px 2px #000;
+}
+#height-label .h-ground { display: block; font-size: 12px; opacity: 0.9; white-space: nowrap; }
+#height-label .h-total { display: block; font-size: 15px; color: #ffd166; white-space: nowrap; }
+
+/* 下部: 時刻パネル */
+#timebar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding: 8px 10px calc(8px + var(--safe-bottom));
+  background: linear-gradient(rgba(8,14,26,0), rgba(8,14,26,0.82) 22px);
+  display: flex; flex-direction: column; gap: 6px;
+}
+#timebar .row { display: flex; align-items: center; gap: 6px; }
+.date-row { flex-wrap: wrap; }
+.date-row .sep { flex: 1; }
+button.round { width: 40px; height: 40px; padding: 0; background: var(--glass); flex: none; }
+button.small { padding: 7px 11px; font-size: 13px; background: var(--glass); }
+button.round.small { width: auto; height: 36px; padding: 0 10px; }
+#btn-play { width: 46px; height: 46px; font-size: 16px; background: var(--accent); }
+#btn-play.on { background: var(--accent2); }
+#time-slider { flex: 1; min-width: 60px; accent-color: #ffd166; height: 30px; }
+#speed { padding: 6px 4px; font-size: 13px; }
+#date { min-width: 0; }
+
+#events { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+#events::-webkit-scrollbar { display: none; }
+.ev {
+  flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  border-radius: 12px; padding: 5px 10px; background: var(--glass); text-align: left; line-height: 1.3;
+  border-left: 3px solid var(--sun); min-width: 96px;
+}
+.ev.moon { border-left-color: var(--moon); }
+.ev .ev-name { font-size: 11px; opacity: 0.9; white-space: nowrap; }
+.ev b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.ev .ev-sub { font-size: 10.5px; opacity: 0.78; white-space: nowrap; }
+.ev.hidden-ev b { font-size: 13px; color: #ff9b9b; }
+.diamond { color: #ffe27a; font-weight: 800; }
+.ev-wait { font-size: 13px; opacity: 0.8; padding: 8px; }
+
+#toast {
+  white-space: pre-line;
+  position: fixed; left: 50%; bottom: calc(var(--timebar-h, 170px) + 14px + var(--safe-bottom)); transform: translateX(-50%);
+  background: rgba(0,0,0,0.8); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 14px;
+  opacity: 0; transition: opacity .2s; pointer-events: none; text-align: center; max-width: min(86vw, 560px);
+  z-index: 25;
+}
+#toast.show { opacity: 1; }
+#toast.good { background: rgba(42,157,143,0.95); }
+#toast.bad { background: rgba(200,60,60,0.92); }
+
+/* スタート */
+.panel { position: fixed; inset: 0; background: linear-gradient(#0b1430 0%, #3a3f6b 45%, #d9845e 85%, #f5b27a 100%); z-index: 10; }
+#start { display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; }
+.start-inner { max-width: 420px; width: 100%; text-align: center; display: flex; flex-direction: column; gap: 11px; }
+.start-inner h1 { font-size: 34px; margin: 0 0 2px; letter-spacing: 0.06em; line-height: 1.25; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.lead { line-height: 1.7; margin: 0 0 4px; font-size: 14px; }
+.note { font-size: 12px; opacity: 0.85; line-height: 1.7; }
+.start-inner button { padding: 13px; font-size: 17px; }
+.date-pick { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+.date-pick input { font-size: 16px; }
+.logo { position: relative; width: 120px; height: 64px; margin: 0 auto; overflow: hidden; }
+.logo-sun { position: absolute; left: 34px; top: 10px; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(#fff6d0, #ffb347 70%); box-shadow: 0 0 30px #ffb347; animation: rise 3.2s ease-out both; }
+.logo-mt { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: #1d2440; clip-path: polygon(0 100%, 22% 40%, 38% 62%, 58% 10%, 78% 55%, 100% 30%, 100% 100%); }
+@keyframes rise { from { transform: translateY(40px); } to { transform: translateY(0); } }
+.settings { text-align: left; font-size: 14px; background: rgba(0,0,0,0.25); border-radius: 12px; padding: 8px 12px; }
+.settings summary { cursor: pointer; }
+.settings label { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; gap: 8px; }
+
+/* 地点選択 */
+#picker { display: flex; flex-direction: column; background: var(--bg); }
+.picker-head, .picker-foot { display: flex; gap: 8px; padding: 10px; align-items: center; background: var(--bg); }
+.picker-head { padding-top: calc(10px + var(--safe-top)); }
+.picker-head + .picker-head { padding-top: 0; }
+#deck-select { flex: 1; font: inherit; padding: 10px 12px; border-radius: 10px; border: 0; min-width: 0; background: #ffd166; color: #1d2b3a; font-weight: 700; }
+.picker-foot { padding-bottom: calc(10px + var(--safe-bottom)); flex-wrap: wrap; }
+#search { flex: 1; font: inherit; padding: 10px 12px; border-radius: 10px; border: 0; min-width: 0; }
+#map { flex: 1; }
+#picker-info { flex: 1 1 100%; font-size: 13px; opacity: 0.9; }
+.picker-foot button { flex: 1; }
+.leaflet-container { background: #dfe7ee; }
+
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15,29,46,0.6); z-index: 20; }
+.loading-box { background: var(--bg); padding: 18px 22px; border-radius: 14px; width: min(320px, 85vw); text-align: center; }
+.bar { height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+#loading-bar { height: 100%; width: 0; background: var(--accent2); transition: width .15s; }
+
+/* モーダル（月間表・ダイヤモンド） */
+.modal { position: fixed; inset: 0; z-index: 15; display: flex; align-items: center; justify-content: center; background: rgba(5, 10, 20, 0.6); padding: 12px; }
+.modal-box {
+  background: var(--bg); border-radius: 16px; width: min(560px, 100%); max-height: 100%;
+  display: flex; flex-direction: column; box-shadow: 0 8px 30px rgba(0,0,0,.5); overflow: hidden;
+}
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+#table-title, .modal-title { flex: 1; text-align: center; font-weight: 800; font-size: 17px; }
+button.close { width: 36px; height: 36px; padding: 0; font-size: 20px; }
+.modal-note { font-size: 11.5px; opacity: 0.75; padding: 8px 12px 0; line-height: 1.6; }
+.modal-scroll { overflow: auto; padding: 8px 10px 12px; -webkit-overflow-scrolling: touch; }
+table.month { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+table.month th, table.month td { padding: 4px 3px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.07); }
+table.month thead th { position: sticky; top: -8px; background: var(--bg); font-size: 12px; opacity: 0.9; }
+table.month small { display: block; font-size: 10.5px; opacity: 0.6; }
+table.month tbody tr { cursor: pointer; }
+table.month tbody tr:hover { background: rgba(255,255,255,0.06); }
+table.month tr.cur { background: rgba(255, 209, 102, 0.16); }
+table.month tr.sun-day th { color: #ff9b9b; }
+table.month tr.sat-day th { color: #9ad1ff; }
+table.month .hid { color: #ff9b9b; font-size: 12px; }
+table.month td.age { white-space: nowrap; }
+canvas.mini-moon { width: 18px; height: 18px; vertical-align: middle; margin-right: 3px; }
+.align-pick { display: flex; gap: 8px; padding: 8px 12px 0; }
+.align-pick select { flex: 1; min-width: 0; }
+.align-list { list-style: none; margin: 0; padding: 0; }
+.align-list li { display: flex; flex-direction: column; padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); cursor: pointer; border-left: 3px solid var(--sun); padding-left: 10px; margin-bottom: 4px; }
+.align-list li.moon { border-left-color: var(--moon); }
+.align-list li:hover { background: rgba(255,255,255,0.06); }
+.a-date b { font-size: 17px; margin-left: 6px; color: #ffd166; }
+.a-kind { font-weight: 700; font-size: 14px; }
+.a-sub { font-size: 12px; opacity: 0.8; }
+
+/* 横長で低い画面: 情報を小さく */
+@media (max-height: 520px) {
+  #info { font-size: 11px; padding: 6px 10px; }
+  .info-time b { font-size: 20px; }
+  .ev b { font-size: 15px; }
+}

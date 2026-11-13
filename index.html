@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1d2e" />
+  <meta name="description" content="山や建物の地形を考慮して、日の出・日の入り・月の出・月の入り・月齢を日付と分刻みの時刻でシミュレーションするWebツール" />
+  <title>日の出・月の出シミュレーター</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <!-- 景色 -->
+  <div id="view">
+    <canvas id="scene"></canvas>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <!-- 左上: 日時と太陽・月の情報 -->
+  <div id="info" class="hidden">
+    <div class="info-place" id="info-place">—</div>
+    <div class="info-time"><span id="info-date">—</span> <b id="info-clock">--:--</b></div>
+    <div class="info-row sun"><span class="ico">☀</span><span id="info-sun">—</span></div>
+    <div class="info-row moon"><canvas id="moon-icon" width="44" height="44"></canvas><span id="info-moon">—</span></div>
+  </div>
+
+  <!-- 右上: コンパス -->
+  <div id="compass" class="hidden" title="方角">
+    <svg viewBox="-50 -50 100 100" aria-hidden="true">
+      <circle r="46" class="ring" />
+      <g id="compass-dial">
+        <text y="-31" class="n">N</text><text x="33" y="5">E</text><text y="40">S</text><text x="-33" y="5">W</text>
+        <path d="M0,-24 L6,0 L0,4 L-6,0Z" class="needle-n" />
+        <path d="M0,24 L6,0 L0,-4 L-6,0Z" class="needle-s" />
+        <g id="compass-sun"><circle r="5" class="c-sun" /></g>
+        <g id="compass-moon"><circle r="4.5" class="c-moon" /></g>
+      </g>
+      <path id="compass-fov" class="fov" d="" />
+      <path d="M0,-50 L4,-43 L-4,-43Z" class="marker" />
+    </svg>
+    <div id="compass-label">N 0°</div>
+  </div>
+
+  <!-- 右側: 高さ調整 -->
+  <div id="height-ctrl" class="hidden">
+    <button id="btn-up" aria-label="上へ">▲</button>
+    <div id="height-label">+0m</div>
+    <button id="btn-down" aria-label="下へ">▼</button>
+  </div>
+
+  <!-- 下部: 日付・時刻・出没 -->
+  <div id="timebar" class="hidden">
+    <div id="events"></div>
+    <div class="row time-row">
+      <button id="btn-play" class="round" aria-label="再生">▶</button>
+      <button id="btn-tminus" class="round small" aria-label="1分戻す">−1分</button>
+      <input id="time-slider" type="range" min="0" max="1439" step="1" value="720" aria-label="時刻" />
+      <button id="btn-tplus" class="round small" aria-label="1分進める">＋1分</button>
+      <select id="speed" aria-label="再生の速さ">
+        <option value="1">1分/秒</option>
+        <option value="5" selected>5分/秒</option>
+        <option value="20">20分/秒</option>
+        <option value="60">1時間/秒</option>
+        <option value="0.0166667">実時間</option>
+      </select>
+    </div>
+    <div class="row date-row">
+      <button id="btn-dprev" class="round small" aria-label="前の日">◀</button>
+      <input id="date" type="date" aria-label="日付" />
+      <button id="btn-dnext" class="round small" aria-label="次の日">▶</button>
+      <button id="btn-now" class="small">今</button>
+      <span class="sep"></span>
+      <button id="btn-labels" class="small">山名</button>
+      <button id="btn-table" class="small">月間表</button>
+      <button id="btn-align" class="small">ダイヤモンド</button>
+      <button id="btn-place" class="small">地点</button>
+      <button id="btn-share" class="small">共有</button>
+      <button id="btn-bgm" class="small">♪</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- 月間表 -->
+  <div id="table-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <button id="btn-mprev" class="round small" aria-label="前の月">◀</button>
+        <div id="table-title">—</div>
+        <button id="btn-mnext" class="round small" aria-label="次の月">▶</button>
+        <button id="btn-table-close" class="close" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-note">上段は地形を考慮した時刻（山の稜線から顔を出す・隠れる）、下段の小さな数字は暦（海抜0mの平らな地平線）の時刻。行をタップするとその日へ移動します。</div>
+      <div id="table-body" class="modal-scroll"></div>
+    </div>
+  </div>
+
+  <!-- ダイヤモンド／パール -->
+  <div id="align-modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title">ダイヤモンド・パール予報</div>
+        <button id="btn-align-close" class="close" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-note">ここから見える山の山頂に、太陽（ダイヤモンド）や月（パール）が重なる日時を、選んだ日から1年分探します。タップするとその瞬間へ移動します。</div>
+      <div class="align-pick">
+        <select id="align-peak" aria-label="山を選ぶ"></select>
+        <button id="btn-align-run" class="primary">探す</button>
+      </div>
+      <div id="align-body" class="modal-scroll"></div>
+    </div>
+  </div>
+
+  <!-- スタート画面 -->
+  <div id="start" class="panel">
+    <div class="start-inner">
+      <div class="logo" aria-hidden="true"><span class="logo-sun"></span><span class="logo-mt"></span></div>
+      <h1>日の出・月の出<br>シミュレーター</h1>
+      <p class="lead">山や建物の地形から、<b>太陽や月が実際に顔を出す・沈む時刻と方角</b>を分刻みでシミュレーション。<br>日の出・日の入り・月の出・月の入り・月齢、ダイヤモンド富士・パール富士の予報も。</p>
+      <label class="date-pick">日付 <input id="start-date" type="date" /></label>
+      <button id="btn-start" class="primary">現在地で見る</button>
+      <button id="btn-start-place" class="secondary">地点を選んで見る</button>
+      <button id="btn-start-deck" class="secondary">展望台から見る</button>
+      <button id="btn-start-shared" class="secondary hidden">共有された地点で見る</button>
+      <p class="note">2本指（マウス）ドラッグで方角・角度、ピンチ（ホイール）でズーム、▲▼で視点の高さを変えられます。</p>
+      <details class="settings">
+        <summary>設定</summary>
+        <label>標高データ
+          <select id="opt-source">
+            <option value="gsi">国土地理院 標高タイル</option>
+            <option value="terrarium">AWS Terrain Tiles</option>
+          </select>
+        </label>
+        <label>効果音
+          <input type="checkbox" id="opt-sfx" checked />
+        </label>
+        <label>街並み（建物）
+          <input type="checkbox" id="opt-buildings" checked />
+        </label>
+        <label>積雪
+          <select id="opt-snow">
+            <option value="auto">季節に合わせる</option>
+            <option value="0">なし</option>
+            <option value="2600">山頂付近</option>
+            <option value="1800">冬山</option>
+          </select>
+        </label>
+      </details>
+    </div>
+  </div>
+
+  <!-- 地点選択 -->
+  <div id="picker" class="panel hidden">
+    <div class="picker-head picker-deck">
+      <select id="deck-select" aria-label="展望台から見る"></select>
+    </div>
+    <div class="picker-head">
+      <input id="search" list="peak-list" placeholder="山の名前で山頂へ（例: 富士山）" />
+      <datalist id="peak-list"></datalist>
+      <button id="btn-here" title="現在地">現在地</button>
+    </div>
+    <div id="map"></div>
+    <div class="picker-foot">
+      <span id="picker-info">地図をタップして地点を選択</span>
+      <button id="btn-picker-cancel" class="secondary">戻る</button>
+      <button id="btn-picker-ok" class="primary" disabled>この地点で見る</button>
+    </div>
+  </div>
+
+  <!-- 読み込み -->
+  <div id="loading" class="hidden">
+    <div class="loading-box">
+      <div id="loading-text">地形データを読み込み中…</div>
+      <div class="bar"><div id="loading-bar"></div></div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
