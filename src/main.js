@@ -964,7 +964,7 @@ function onTap(x, y) {
   if (best) {
     sfx('click');
     state.selPeak = best;
-    toast(`${best.name}（${best.yomi}）標高${best.elev}m・${dirName(best.az)} ${best.az.toFixed(1)}°・${fmtDist(best.dist)}\n「ダイヤモンド」で太陽・月が山頂に重なる日を探せます`, '', 3800);
+    toast(`${best.name}（${best.yomi}）標高${best.elev}m・${dirName(best.az)} ${best.az.toFixed(1)}°・${fmtDist(best.dist)}\nトップの「ダイヤモンド・パール予報」で、太陽・月が山頂に重なる日を探せます`, '', 3800);
   } else {
     state.selPeak = null;
   }
@@ -1152,7 +1152,6 @@ async function runAlign(days = alignDays()) {
     animateTo(p.az, peakAlt + 0.8, 6);
   }));
 }
-$('btn-align').addEventListener('click', () => { sfx('open'); stopPlay(); openAlign(); });
 $('btn-align-run').addEventListener('click', () => runAlign());
 $('btn-align-year').addEventListener('click', async () => {
   sfx('click');
@@ -1186,7 +1185,6 @@ $('btn-labels').addEventListener('click', () => {
   $('btn-labels').classList.toggle('on', state.showLabels);
   draw();
 });
-$('btn-place').addEventListener('click', () => { sfx('open'); stopPlay(); openPicker(); });
 function updateBgmButton() {
   $('btn-bgm').classList.toggle('on', bgmOn);
   $('btn-bgm').textContent = bgmOn ? '♪ BGM' : '♪ オフ';
@@ -1321,7 +1319,7 @@ $('btn-follow').addEventListener('click', async () => {
 // ---------------- 開始・地点の読み込み ----------------
 // view: 共有 URL から復元する向き・時刻
 // useCompass: 現在地から始めたとき。今日の日付なら端末が向いている方角から始める
-async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck = 0, view: v = null, useCompass = false } = {}) {
+async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck = 0, view: v = null, useCompass = false, thenAlign = false } = {}) {
   $('start').classList.add('hidden');
   $('picker').classList.add('hidden');
   $('loading').classList.remove('hidden');
@@ -1420,7 +1418,7 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
     if (compassStart) notes.push('端末が向いている方角から表示しています。「コンパス」で向きに追従します');
     if (compassMissing) notes.push('コンパスが使えないため、太陽・月の方角から表示しています');
     notes.push('下のスライダーで時刻、▶で分刻みに再生できます');
-    toast(notes.join('\n'), '', 4500);
+    if (thenAlign) { sfx('open'); openAlign(); } else toast(notes.join('\n'), '', 4500);
   } catch (err) {
     progressFn = null;
     $('loading').classList.add('hidden');
@@ -1466,6 +1464,7 @@ $('btn-start').addEventListener('click', async () => {
   }
 });
 $('btn-start-place').addEventListener('click', () => { audio.unlock(); sfx('open'); initWorker(); enableCompass(); openPicker(); });
+$('btn-start-align').addEventListener('click', () => { audio.unlock(); sfx('open'); initWorker(); enableCompass(); openPicker(true); });
 $('start-date').value = dateStr(Date.now());
 $('start-date').addEventListener('change', () => sfx('click'));
 {
@@ -1483,7 +1482,11 @@ $('start-date').addEventListener('change', () => sfx('click'));
 
 // ---------------- 地点選択（地図） ----------------
 let map = null, marker = null, picked = null;
-function openPicker() {
+// alignMode: トップの「ダイヤモンド・パール予報」から開いたとき（地点を読み込んだら予報の画面を開く）
+let alignMode = false;
+function openPicker(forAlign = false) {
+  alignMode = forAlign;
+  $('picker-info').textContent = forAlign ? '予報を出す地点（見る場所）を地図で選んでください' : '地図をタップして地点を選択';
   $('picker').classList.remove('hidden');
   if (!map) {
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView([36.2, 138.2], 6);
@@ -1514,9 +1517,7 @@ $('btn-picker-ok').addEventListener('click', () => {
   audio.unlock();
   sfx('start');
   enableCompass();
-  // 地点を変えたときは、表示中の日付を引き継ぐ
-  if (state.obs) $('start-date').value = dateStr(state.dayT0);
-  startAt(picked.lat, picked.lon, { name: picked.name || '選択地点', summit: picked.summit, deck: picked.deck });
+  startAt(picked.lat, picked.lon, { name: picked.name || '選択地点', summit: picked.summit, deck: picked.deck, thenAlign: alignMode });
 });
 $('btn-picker-cancel').addEventListener('click', () => {
   sfx('close');
@@ -1554,10 +1555,6 @@ $('deck-select').addEventListener('change', (e) => {
   const o = OBSERVATORIES[+e.target.value];
   map.setView([o.lat, o.lon], 14);
   pick(o.lat, o.lon, o.name, 0, o.deck);
-});
-$('btn-start-deck').addEventListener('click', () => {
-  audio.unlock(); sfx('open'); initWorker(); enableCompass(); openPicker();
-  setTimeout(() => { $('deck-select').focus(); if ($('deck-select').showPicker) try { $('deck-select').showPicker(); } catch { /* 非対応 */ } }, 300);
 });
 $('peak-list').innerHTML = MOUNTAINS.map((m) => `<option value="${uniqueName(m)}">${m.yomi} ${m.elev}m</option>`).join('');
 $('opt-source').addEventListener('change', () => initWorker());
