@@ -11,9 +11,6 @@
     "type": "git",
     "url": "git+https://github.com/techgymjp/hinode.git"
   },
-  "dependencies": {
-    "leaflet": "^1.9.4"
-  },
   "devDependencies": {
     "vite": "^8.3.8"
   },

@@ -2,6 +2,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
-  worker: { format: 'iife' },
-  build: { target: ['es2019', 'safari13'] },
+  worker: { format: 'es' },
+  build: { target: ['es2020', 'safari15'] },
 });

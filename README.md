@@ -27,21 +27,22 @@
 - `src/worker.js`（Web Worker）: 山探しの景色描画に加えて、0.1°刻み360°の「地形の地平線」（各方位で見える地形の最大仰角。地球の丸みと大気差 k=0.13 を考慮）を計算。出没の瞬間はその方位で計算し直して精度を上げています
 - 地形の空は透明で描画し、空・星・太陽・月はメインスレッドで時刻に応じて描いて、地形の後ろに重ねています
 
-## 開発
+## 開発・公開
+
+ビルド不要です。リポジトリのルートをそのまま静的サーバで配信すれば動きます（ES モジュール・モジュール Worker を使うため、ファイルを直接開くのではなくサーバ経由で）。
 
 ```bash
-npm install
-npm run dev      # 開発サーバ
-npm run build    # dist/ に静的ファイルを出力
+python3 -m http.server 8000   # http://localhost:8000/ を開く
 ```
 
-`main` ブランチに push すると GitHub Pages にデプロイされます（`.github/workflows/pages.yml`）。
-位置情報とコンパスは HTTPS（または localhost）でのみ動作します。
+GitHub Pages は「Deploy from a branch: main / (root)」で公開しています（`main` に push すると反映）。
+Leaflet は `vendor/leaflet/` に同梱しています。位置情報とコンパスは HTTPS（または localhost）でのみ動作します。
 
 ## データの出典
 
 - 山の一覧：[国土地理院「日本の主な山岳標高」](https://www.gsi.go.jp/kihonjohochousa/kihonjohochousa41139.html)（国土地理院コンテンツ利用規約に基づき加工して利用）
 - 標高：[国土地理院 地理院タイル（標高タイル）](https://maps.gsi.go.jp/development/demtile.html)、[AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
+- 地図ライブラリ：[Leaflet](https://leafletjs.com/)（BSD-2-Clause、`vendor/leaflet/LICENSE`）
 - 空中写真・地図：[地理院タイル](https://maps.gsi.go.jp/development/ichiran.html)
 - 構造物・展望台の位置と高さはおおよその値です。建物は空中写真の色から推定した架空のものです
 - 星は実在の恒星ではなく、雰囲気のための疑似乱数の星です（日周運動はします）

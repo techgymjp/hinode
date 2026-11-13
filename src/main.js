@@ -1,8 +1,8 @@
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import MOUNTAINS from './data/mountains.json';
-import STRUCTURES from './data/structures.json';
-import OBSERVATORIES from './data/observatories.json';
+// ビルドなしで動くよう、Leaflet は index.html で vendor/ から読み込む（window.L）
+import MOUNTAINS from './data/mountains.js';
+import STRUCTURES from './data/structures.js';
+import OBSERVATORIES from './data/observatories.js';
+const L = window.L;
 import { createBgm } from './bgm.js';
 import {
   sunPosition, moonPosition, moonPhase, moonAge, moonName, bearingOnSky,
@@ -137,7 +137,7 @@ async function provideTile(m) {
 }
 
 // ---------------- Worker ----------------
-const worker = new Worker(new URL('./worker.js', import.meta.url));
+const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let reqId = 0;
 const pending = new Map();
 let progressFn = null;
