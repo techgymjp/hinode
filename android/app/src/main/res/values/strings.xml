@@ -4,6 +4,6 @@
     <string name="title_activity_main">日の出月の出</string>
     <string name="package_name">jp.techgym.hinode</string>
     <string name="custom_url_scheme">jp.techgym.hinode</string>
-    <!-- AdMob のアプリ ID。本番の ID は AdMob でアプリを登録したら差し替える（いまは Google 公式のテスト用 ID） -->
-    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <!-- AdMob のアプリ ID（AdMob の Android アプリ「日の出・月の出シミュレーター」） -->
+    <string name="admob_app_id">ca-app-pub-6411535997477460~1794360485</string>
 </resources>
