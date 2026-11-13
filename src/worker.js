@@ -243,9 +243,10 @@ function baseColor(h, snowline, out) {
 }
 
 // 空気遠近法（遠いほど青白く霞む）
+// 空気遠近法。霞の色は空（地平線付近）より少し暗くして、遠くの低い山の稜線も空と見分けられるようにする
 function haze(c, dist) {
-  const f = 1 - Math.exp(-dist / 55000);
-  c[0] += (178 - c[0]) * f; c[1] += (196 - c[1]) * f; c[2] += (222 - c[2]) * f;
+  const f = 0.88 * (1 - Math.exp(-dist / 75000));
+  c[0] += (150 - c[0]) * f; c[1] += (168 - c[1]) * f; c[2] += (196 - c[2]) * f;
 }
 
 function structureColor(s, lateral, dist, out) {

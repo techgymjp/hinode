@@ -872,13 +872,13 @@ view.addEventListener('pointermove', (e) => {
       else if (pan > 12) gesture.axis = axisOf(dx, dy);
     }
     if (gesture.axis === 'zoom') state.fov = gesture.fov * gesture.dist / Math.max(dist, 1);
-    else if (gesture.axis === 'h') state.heading = gesture.heading - dx / f / DEG;
+    else if (gesture.axis === 'h') { stopFollow(); state.heading = gesture.heading - dx / f / DEG; }
     else if (gesture.axis === 'v') state.pitch = Math.atan(Math.tan(gesture.pitch * DEG) + dy / f) / DEG;
     if (gesture.axis) gesture.moved = true;
   } else if (pts.length === 1) {
     const dx = p.x - gesture.mx, dy = p.y - gesture.my;
     if (!gesture.axis && Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gesture.axis = axisOf(dx, dy);
-    if (gesture.axis === 'h') state.heading = gesture.heading - dx / f / DEG;
+    if (gesture.axis === 'h') { stopFollow(); state.heading = gesture.heading - dx / f / DEG; }
     else if (gesture.axis === 'v') state.pitch = Math.atan(Math.tan(gesture.pitch * DEG) + dy / f) / DEG;
     if (gesture.axis) gesture.moved = true;
   }
@@ -924,6 +924,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === ',' || e.key === '.') { stopPlay(); setTime(state.t + (e.key === '.' ? MIN : -MIN)); return; }
   const k = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 2], ArrowDown: [0, -2] }[e.key];
   if (!k) return;
+  if (k[0]) stopFollow();
   state.heading += k[0] * state.fov / 60; state.pitch += k[1];
   clampView(); requestRender();
 });
@@ -1018,6 +1019,7 @@ function toast(msg, cls = '', ms = 2200) {
 }
 
 function animateTo(az, pitch, fov = state.fov) {
+  stopFollow();
   const hh = state.heading, p0 = state.pitch, f0 = state.fov, dh = wrap180(az - hh), dp = pitch - p0;
   const t0 = performance.now();
   const step = (t) => {
@@ -1139,6 +1141,18 @@ for (const id of ['table-modal', 'align-modal']) {
   $(id).addEventListener('click', (e) => { if (e.target.id === id) { sfx('close'); closeModal(id); } });
 }
 
+// ---------------- トップページへ戻る ----------------
+$('btn-home').addEventListener('click', () => {
+  sfx('close');
+  stopPlay();
+  if (follow) setFollow(false);
+  for (const id of ['table-modal', 'align-modal']) closeModal(id);
+  ['info', 'compass', 'btn-home', 'height-ctrl', 'timebar'].forEach((id) => $(id).classList.add('hidden'));
+  // 表示していた日付をスタート画面に引き継ぐ
+  $('start-date').value = dateStr(state.dayT0);
+  $('start').classList.remove('hidden');
+});
+
 // ---------------- そのほかのボタン ----------------
 $('btn-labels').addEventListener('click', () => {
   state.showLabels = !state.showLabels;
@@ -1212,26 +1226,74 @@ function onOrientation(e) {
   const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
   deviceHeading = (h + so + 360) % 360;
 }
+let compassListening = false;
 async function enableCompass() {
+  // 先にリスナーを付ける（許可ダイアログの応答待ちで止まっても、届いたイベントは使えるように）
+  if (!compassListening) {
+    window.addEventListener('deviceorientationabsolute', onOrientation);
+    window.addEventListener('deviceorientation', onOrientation);
+    compassListening = true;
+  }
   try {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS は 'granted'／'denied'。新しい Chrome は 'prompt' を返すことがある
       const r = await DeviceOrientationEvent.requestPermission();
-      if (r !== 'granted') return;
+      if (r === 'denied') return false;
     }
-  } catch { return; }
-  window.addEventListener('deviceorientationabsolute', onOrientation);
-  window.addEventListener('deviceorientation', onOrientation);
+  } catch { /* 非対応・ユーザー操作外 */ }
+  return true;
 }
+// コンパスの値が届くまで少し待つ（届かなければ null）
+async function readHeading(ms = 1000) {
+  for (let i = 0; i < ms / 100 && deviceHeading === null; i++) await new Promise((r) => setTimeout(r, 100));
+  return deviceHeading;
+}
+
+// 「コンパス追従」: オンの間は端末を向けた方角に画面がついてくる
+let follow = false, followRaf = 0;
+function setFollow(on, msg) {
+  follow = on;
+  $('btn-follow').classList.toggle('on', on);
+  cancelAnimationFrame(followRaf);
+  if (on) followRaf = requestAnimationFrame(followStep);
+  else { setInteracting(false); updateHash(); }
+  if (msg) toast(msg, '', 2200);
+}
+function followStep() {
+  if (!follow) return;
+  if (deviceHeading !== null) {
+    const d = wrap180(deviceHeading - state.heading);
+    if (Math.abs(d) > 0.05) {
+      // 手ぶれを抑えつつ追いかける
+      state.heading += d * 0.2;
+      clampView(); setInteracting(true); requestRender(); setInteracting(false);
+    }
+  }
+  followRaf = requestAnimationFrame(followStep);
+}
+// 手で方角を変えたら追従をやめる
+function stopFollow() { if (follow) setFollow(false, 'コンパス追従をオフにしました'); }
+$('btn-follow').addEventListener('click', async () => {
+  if (follow) { sfx('off'); setFollow(false); return; }
+  // 許可の結果ではなく、方位の値が実際に届くかで判断する
+  enableCompass();
+  const h = await readHeading(2500);
+  if (h === null) { sfx('error'); toast('この端末ではコンパス（方位センサー）が使えません', 'bad', 3000); return; }
+  sfx('on');
+  setFollow(true, 'コンパス追従：端末を向けた方角を表示します');
+});
 
 // ---------------- 開始・地点の読み込み ----------------
 // view: 共有 URL から復元する向き・時刻
-async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck = 0, view: v = null } = {}) {
+// useCompass: 現在地から始めたとき。今日の日付なら端末が向いている方角から始める
+async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck = 0, view: v = null, useCompass = false } = {}) {
   $('start').classList.add('hidden');
   $('picker').classList.add('hidden');
   $('loading').classList.remove('hidden');
   $('loading-bar').style.width = '0%';
   $('loading-text').textContent = `${name ? name + ' の' : ''}地形データを読み込み中…`;
   stopPlay();
+  if (follow) setFollow(false);
   progressFn = (p) => { $('loading-bar').style.width = `${Math.round(p * 100)}%`; };
   try {
     const r = await call({ type: 'load', lat, lon });
@@ -1274,8 +1336,21 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
       if (rise) focus = rise;
     }
     state.t = t;
+    let compassStart = false, compassMissing = false;
+    if (useCompass && startDay === todayT0() && !v) {
+      const h = await readHeading();
+      if (h !== null) {
+        compassStart = true;
+        state.heading = h;
+        state.fov = window.innerWidth < window.innerHeight ? 45 : 60;
+        state.pitch = Math.max(-10, horizonAlt(h) + state.fov * 0.1);
+        clampView();
+      } else compassMissing = true;
+    }
     // 向き: 太陽が出ていれば太陽、なければ次に昇る天体の方角
-    if (v && Number.isFinite(v.az) && v.fov) {
+    if (compassStart) {
+      // 端末の向き（上で設定済み）
+    } else if (v && Number.isFinite(v.az) && v.fov) {
       state.heading = v.az; state.fov = v.fov; state.pitch = Number.isFinite(v.pt) ? v.pt : 3;
     } else {
       if (!focus) {
@@ -1290,7 +1365,7 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
       state.pitch = Math.max(-10, (focus.horizon || 0) + state.fov * 0.1);
       clampView();
     }
-    ['info', 'compass', 'height-ctrl', 'timebar'].forEach((id) => $(id).classList.remove('hidden'));
+    ['info', 'compass', 'btn-home', 'height-ctrl', 'timebar'].forEach((id) => $(id).classList.remove('hidden'));
     panoHasAny = false; pctx.clearRect(0, 0, PANO_W, PANO_H); resetPano();
     imgParams = null;
     lightKey = '';
@@ -1304,13 +1379,15 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
     if (snapped) notes.push(`${name} 山頂（標高${summit}m）から見ています`);
     if (deck) notes.push(`${name}（地上${deck}m）から見ています`);
     if (urbanStart) notes.push('市街地のため、ビルの屋上（地上30m）から見ています。▼で地上に降りられます');
+    if (compassStart) notes.push('端末が向いている方角から表示しています。「コンパス」で向きに追従します');
+    if (compassMissing) notes.push('コンパスが使えないため、太陽・月の方角から表示しています');
     notes.push('下のスライダーで時刻、▶で分刻みに再生できます');
     toast(notes.join('\n'), '', 4500);
   } catch (err) {
     progressFn = null;
     $('loading').classList.add('hidden');
     toast(`読み込みに失敗しました: ${err.message}`, 'bad', 4000);
-    if (!state.obs) $('start').classList.remove('hidden');
+    if (!state.obs || $('timebar').classList.contains('hidden')) $('start').classList.remove('hidden');
   }
 }
 
@@ -1342,8 +1419,8 @@ $('btn-start').addEventListener('click', async () => {
     const { lat, lon } = await getPosition();
     if (!inJapan(lat, lon)) { toast('現在地が日本国外のため、地点を選んでください', 'bad', 3500); openPicker(); return; }
     const sm = nearbySummit(lat, lon);
-    if (sm) startAt(sm.lat, sm.lon, { name: uniqueName(sm), summit: sm.elev, snapped: true });
-    else startAt(lat, lon, { name: '現在地' });
+    if (sm) startAt(sm.lat, sm.lon, { name: uniqueName(sm), summit: sm.elev, snapped: true, useCompass: true });
+    else startAt(lat, lon, { name: '現在地', useCompass: true });
   } catch {
     sfx('error');
     toast('現在地を取得できませんでした。地点を選んでください', 'bad', 3500);

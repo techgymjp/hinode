@@ -42,6 +42,9 @@
     <div id="compass-label">N 0°</div>
   </div>
 
+  <!-- 右上: トップページへ -->
+  <button id="btn-home" class="hidden" aria-label="トップページへ戻る">⌂ トップ</button>
+
   <!-- 右側: 高さ調整 -->
   <div id="height-ctrl" class="hidden">
     <button id="btn-up" aria-label="上へ">▲</button>
@@ -75,6 +78,7 @@
       <button id="btn-table" class="small">月間表</button>
       <button id="btn-align" class="small">ダイヤモンド</button>
       <button id="btn-place" class="small">地点</button>
+      <button id="btn-follow" class="small" title="端末を向けた方角に画面がついてくる">コンパス</button>
       <button id="btn-share" class="small">共有</button>
       <button id="btn-bgm" class="small">♪</button>
     </div>
@@ -123,7 +127,7 @@
       <button id="btn-start-place" class="secondary">地点を選んで見る</button>
       <button id="btn-start-deck" class="secondary">展望台から見る</button>
       <button id="btn-start-shared" class="secondary hidden">共有された地点で見る</button>
-      <p class="note">2本指（マウス）ドラッグで方角・角度、ピンチ（ホイール）でズーム、▲▼で視点の高さを変えられます。</p>
+      <p class="note">「現在地で見る」は端末が向いている方角から始まります（今日の日付のとき）。<br>2本指（マウス）ドラッグで方角・角度、ピンチ（ホイール）でズーム、▲▼で視点の高さを変えられます。</p>
       <details class="settings">
         <summary>設定</summary>
         <label>標高データ
