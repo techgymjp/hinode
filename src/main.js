@@ -814,7 +814,13 @@ $('btn-now').addEventListener('click', () => {
 
 // 再生（分刻みで時間を進める）
 let playRaf = 0, playLast = 0;
-const PLAY_SPEED = 5; // 再生の速さ（1 秒で 5 分進む）
+// 再生の速さ（1 秒で何分進むか）。トップページの設定で選び、端末に保存する
+const SPEED_KEY = 'hinode.speed';
+try { const v = localStorage.getItem(SPEED_KEY); if (v && [...$('opt-speed').options].some((o) => o.value === v)) $('opt-speed').value = v; } catch { /* 保存できない環境 */ }
+$('opt-speed').addEventListener('change', () => {
+  sfx('click');
+  try { localStorage.setItem(SPEED_KEY, $('opt-speed').value); } catch { /* 保存できない環境 */ }
+});
 function startPlay() {
   state.playing = true;
   $('btn-play').textContent = '❚❚';
@@ -824,7 +830,7 @@ function startPlay() {
     if (!state.playing) return;
     const dt = Math.min(0.25, (now - playLast) / 1000);
     playLast = now;
-    const speed = PLAY_SPEED; // 分/秒
+    const speed = +$('opt-speed').value || 5; // 分/秒
     setTime(state.t + dt * speed * MIN, { quiet: true });
     playRaf = requestAnimationFrame(step);
   };
