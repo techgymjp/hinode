@@ -1354,7 +1354,8 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
     let ground = r.ground;
     if (summit) ground = Math.max(ground, summit);
     state.obs = { lat, lon, ground, name, summit };
-    const urbanStart = !summit && !deck && $('opt-buildings').checked && r.urban > 0.35;
+    // 高さを指定して開いたとき（共有 URL・展望台・山頂）は屋上にしない
+    const urbanStart = !summit && !deck && !(v && v.h) && $('opt-buildings').checked && r.urban > 0.35;
     state.hIdx = urbanStart ? HEIGHTS.indexOf(30) : 0;
     state.hOverride = deck || null;
     if (v && v.h) {
