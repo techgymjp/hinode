@@ -806,8 +806,6 @@ const shiftDay = (n) => {
 };
 bindRepeat($('btn-dprev'), () => { sfx('click'); shiftDay(-1); });
 bindRepeat($('btn-dnext'), () => { sfx('click'); shiftDay(1); });
-bindRepeat($('btn-tminus'), () => { sfxTick(); stopPlay(); setTime(Math.round((state.t - MIN) / MIN) * MIN); }, 120);
-bindRepeat($('btn-tplus'), () => { sfxTick(); stopPlay(); setTime(Math.round((state.t + MIN) / MIN) * MIN); }, 120);
 $('btn-now').addEventListener('click', () => {
   sfx('click');
   stopPlay();
@@ -816,6 +814,7 @@ $('btn-now').addEventListener('click', () => {
 
 // 再生（分刻みで時間を進める）
 let playRaf = 0, playLast = 0;
+const PLAY_SPEED = 5; // 再生の速さ（1 秒で 5 分進む）
 function startPlay() {
   state.playing = true;
   $('btn-play').textContent = '❚❚';
@@ -825,7 +824,7 @@ function startPlay() {
     if (!state.playing) return;
     const dt = Math.min(0.25, (now - playLast) / 1000);
     playLast = now;
-    const speed = +$('speed').value; // 分/秒
+    const speed = PLAY_SPEED; // 分/秒
     setTime(state.t + dt * speed * MIN, { quiet: true });
     playRaf = requestAnimationFrame(step);
   };
@@ -843,7 +842,6 @@ function stopPlay() {
 $('btn-play').addEventListener('click', () => {
   if (state.playing) { sfx('pause'); stopPlay(); } else { sfx('play'); startPlay(); }
 });
-$('speed').addEventListener('change', () => sfx('click'));
 
 // ---------------- 操作（ドラッグ・ピンチ・タップ） ----------------
 const pointers = new Map();
