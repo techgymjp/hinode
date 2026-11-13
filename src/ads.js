@@ -13,7 +13,7 @@ window.Ads = (() => {
       },
       // 本番の広告ユニット（AdMob の Android アプリ「日の出・月の出シミュレーター」）
       production: {
-        interstitial: '',
+        interstitial: 'ca-app-pub-6411535997477460/1386845571',
         rewarded: '',
         banner: 'ca-app-pub-6411535997477460/9704319296',
       },
