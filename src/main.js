@@ -4,6 +4,7 @@ import STRUCTURES from './data/structures.js';
 import OBSERVATORIES from './data/observatories.js';
 const L = window.L;
 import { createBgm } from './bgm.js';
+import { T, EN, LANG_PREF, setLangPref, applyStatic, localizeData, moonNameEn } from './i18n.js';
 import {
   sunPosition, moonPosition, moonPhase, moonAge, moonName, bearingOnSky,
   JST, jstMidnight, jstParts, fmtHM,
@@ -34,16 +35,19 @@ const DEG = Math.PI / 180;
 const MIN = 60000, DAY = 86400000;
 const $ = (id) => document.getElementById(id);
 const wrap180 = (a) => ((a % 360) + 540) % 360 - 180;
-const DIRS = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+const DIRS = T.dirs;
 const dirName = (az) => DIRS[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
 const fmtDist = (m) => (m < 10000 ? (m / 1000).toFixed(1) : Math.round(m / 1000)) + 'km';
-const WD = ['日', '月', '火', '水', '木', '金', '土'];
-const CLASS_LABEL = { 100: '日本百名山', 200: '日本二百名山', 300: '日本三百名山' };
+const WD = T.wd;
+const CLASS_LABEL = T.classLabel;
+// 英語のときは山・構造物・展望台の名前を英語に（NAME_COUNT より前に）
+localizeData(MOUNTAINS, STRUCTURES, OBSERVATORIES);
+applyStatic();
 const RANK = { 100: 3, 200: 2, 300: 1, 0: 0 };
 const rank = (p) => RANK[p.cls] || 0;
 const NAME_COUNT = {};
 for (const m of MOUNTAINS) NAME_COUNT[m.name] = (NAME_COUNT[m.name] || 0) + 1;
-const uniqueName = (m) => (NAME_COUNT[m.name] > 1 && m.pref ? `${m.name}（${m.pref}）` : m.name);
+const uniqueName = (m) => (NAME_COUNT[m.name] > 1 && m.pref ? T.uniqueName(m.name, m.pref) : m.name);
 const HEIGHTS = [1.6, 5, 10, 20, 30, 50, 100, 150, 200, 300, 500, 700, 1000, 1500, 2000, 3000, 5000];
 const pad2 = (n) => String(n).padStart(2, '0');
 const dateStr = (ms) => { const p = jstParts(ms); return `${p.y}-${pad2(p.m)}-${pad2(p.d)}`; };
@@ -76,7 +80,7 @@ function snowline() {
 
 // ---------------- 画面上のエラー表示 ----------------
 function showError(msg) {
-  try { toast(`エラー: ${msg}`, 'bad', 6000); } catch { alert(`エラー: ${msg}`); }
+  try { toast(T.error(msg), 'bad', 6000); } catch { alert(T.error(msg)); }
 }
 window.addEventListener('error', (e) => showError(e.message || String(e.error)));
 window.addEventListener('unhandledrejection', (e) => showError((e.reason && e.reason.message) || String(e.reason)));
@@ -104,7 +108,7 @@ function loadImage(blob) {
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像のデコードに失敗')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image decode failed')); };
     img.src = url;
   });
 }
@@ -159,7 +163,7 @@ function call(msg) {
     worker.postMessage({ ...msg, id });
   });
 }
-worker.onerror = (e) => showError(`Worker: ${e.message || '読み込みに失敗しました'}`);
+worker.onerror = (e) => showError(`Worker: ${e.message || T.workerFail}`);
 worker.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'needTile') { provideTile(m); return; }
@@ -466,7 +470,7 @@ function drawSky(sun, moon, phase) {
       const x = xOf(p.az), y = yOf(p.appAlt);
       if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
       sctx.beginPath(); sctx.arc(x, y, 2.4 * dpr, 0, Math.PI * 2); sctx.fill();
-      sctx.fillText(`${label}${jstParts(p.t).hh}時`, x, y - 6 * dpr);
+      sctx.fillText(`${label}${T.hourLabel(jstParts(p.t).hh)}`, x, y - 6 * dpr);
     }
     sctx.restore();
   };
@@ -616,7 +620,7 @@ function drawLabels(list, color, big = false) {
   octx.font = `${big ? 'bold 17px' : 'bold 13px'} system-ui, sans-serif`;
   octx.textAlign = 'center';
   for (const o of items) {
-    const label = big ? `${o.p.name}（${fmtDist(o.p.dist)}）` : o.p.name;
+    const label = big ? T.labelBig(o.p.name, fmtDist(o.p.dist)) : o.p.name;
     const w = octx.measureText(label).width + 10, hgt = big ? 23 : 18;
     let ly = null;
     for (let k = 0; k < 6; k++) {
@@ -647,16 +651,16 @@ function updateCompass(sun, moon) {
   place('compass-sun', sun); place('compass-moon', moon);
   const hd = ((Math.round(state.heading) % 360) + 360) % 360;
   $('compass-label').textContent = `${dirName(hd)} ${hd}°`;
-  $('height-label').innerHTML = `<span class="h-ground">地上${eyeHeight()}m</span><span class="h-total">標高${Math.round(h0())}m</span>`;
+  $('height-label').innerHTML = T.heightLabel(eyeHeight(), Math.round(h0()));
 }
 
 // ---------------- 情報パネル ----------------
-const EV_NAME = { sun: { rise: '日の出', set: '日の入り' }, moon: { rise: '月の出', set: '月の入り' } };
+const EV_NAME = T.ev;
 function updateInfo() {
   if (!state.obs) return;
   const p = jstParts(state.t);
-  $('info-place').textContent = state.obs.name || '選択地点';
-  $('info-date').textContent = `${p.y}年${p.m}月${p.d}日（${WD[p.wd]}）`;
+  $('info-place').textContent = state.obs.name || T.selectedPlace;
+  $('info-date').textContent = T.date(p, WD[p.wd]);
   $('info-clock').textContent = `${pad2(p.hh)}:${pad2(p.mm)}`;
   const sun = sunPosition(state.t, state.obs.lat, state.obs.lon);
   const moon = moonPosition(state.t, state.obs.lat, state.obs.lon);
@@ -665,12 +669,12 @@ function updateInfo() {
   const vis = (b) => {
     if (!state.horizon) return '';
     const hz = horizonAlt(b.az);
-    if (b.appAlt + b.sd < hz) return '（地形に隠れている）';
-    if (b.appAlt - b.sd < hz) return '（稜線にかかる）';
+    if (b.appAlt + b.sd < hz) return T.hidden;
+    if (b.appAlt - b.sd < hz) return T.onRidge;
     return '';
   };
-  $('info-sun').textContent = `太陽 ${dirName(sun.az)} ${sun.az.toFixed(1)}°・高度 ${sun.appAlt.toFixed(1)}°${vis(sun)}`;
-  $('info-moon').textContent = `月齢 ${age.toFixed(1)} ${moonName(age)}・輝面 ${Math.round(ph.illum * 100)}%\n月 ${dirName(moon.az)} ${moon.az.toFixed(1)}°・高度 ${moon.appAlt.toFixed(1)}°${vis(moon)}`;
+  $('info-sun').textContent = T.sunInfo(dirName(sun.az), sun.az.toFixed(1), sun.appAlt.toFixed(1), vis(sun));
+  $('info-moon').textContent = T.moonInfo(age.toFixed(1), EN ? moonNameEn(age) : moonName(age), Math.round(ph.illum * 100), dirName(moon.az), moon.az.toFixed(1), moon.appAlt.toFixed(1), vis(moon));
   const ic = $('moon-icon'), ictx2 = ic.getContext('2d');
   ictx2.clearRect(0, 0, ic.width, ic.height);
   drawMoonDisc(ictx2, 22, 22, 18, ph.illum, ph.waxing ? 90 : -90);
@@ -698,7 +702,10 @@ function horizonAlt(az) {
 }
 
 // ダイヤモンド富士・パール富士のように呼ぶときの山の名前
-const shortName = (p) => (p.name === '富士山' ? '富士' : p.name);
+const isFuji = (p) => (p.ja || p.name) === '富士山';
+const shortName = (p) => (isFuji(p) ? (EN ? 'Fuji' : '富士') : (EN ? (p.base || p.name) : p.name));
+// ダイヤモンド富士・パール○○
+const alignName = (kind, p) => (EN ? `${kind} ${shortName(p)}` : `${kind}${shortName(p)}`);
 // 出没の方角にある山（稜線がその山なら山の名前を付ける）
 function peakAt(e, body) {
   let best = null, bd = 1.5;
@@ -713,14 +720,14 @@ function peakAt(e, body) {
   for (let t = e.t - 8 * MIN; t <= e.t + 8 * MIN; t += 10000) {
     const pos = (body === 'sun' ? sunPosition : moonPosition)(t, state.obs.lat, state.obs.lon);
     const dx = wrap180(pos.az - best.az) * Math.cos(top * DEG), dy = pos.appAlt - top;
-    if (Math.hypot(dx, dy) <= pos.sd * 1.05) return `<span class="diamond">${body === 'sun' ? 'ダイヤモンド' : 'パール'}${shortName(best)}</span>`;
+    if (Math.hypot(dx, dy) <= pos.sd * 1.05) return `<span class="diamond">${alignName(body === 'sun' ? T.diamond : T.pearl, best)}</span>`;
   }
-  return `${best.name}の${wrap180(e.az - best.az) > 0 ? '右' : '左'}から`.replace('から', e.type === 'rise' ? 'から' : 'へ');
+  return T.aside(best.name, wrap180(e.az - best.az) > 0, e.type === 'rise');
 }
 
 function renderEvents() {
   const box = $('events');
-  if (!state.events) { box.innerHTML = '<div class="ev-wait">出没を計算中…</div>'; return; }
+  if (!state.events) { box.innerHTML = `<div class="ev-wait">${T.calcEvents}</div>`; return; }
   const items = [];
   for (const body of ['sun', 'moon']) {
     const ev = state.events[body];
@@ -735,18 +742,18 @@ function renderEvents() {
   const ico = (b, type) => (b === 'sun' ? (type === 'rise' ? '🌅' : type === 'set' ? '🌇' : '☀') : (type === 'rise' ? '🌙' : type === 'set' ? '🌘' : '🌕'));
   box.innerHTML = items.map((it, i) => {
     if (it.transit) {
-      return `<button class="ev ${it.body}" data-i="${i}"><span class="ev-name">${ico(it.body, 'transit')} ${it.body === 'sun' ? '南中' : '月の南中'}</span><b>${fmtHM(it.transit.t)}</b><span class="ev-sub">高度${it.transit.alt.toFixed(1)}°</span></button>`;
+      return `<button class="ev ${it.body}" data-i="${i}"><span class="ev-name">${ico(it.body, 'transit')} ${T.transit[it.body]}</span><b>${fmtHM(it.transit.t)}</b><span class="ev-sub">${T.altitude(it.transit.alt.toFixed(1))}</span></button>`;
     }
     const type = (it.e || it.cal).type;
     const name = EV_NAME[it.body][type];
     if (!it.e) {
-      return `<button class="ev ${it.body} hidden-ev" data-i="${i}"><span class="ev-name">${ico(it.body, type)} ${name}</span><b>地形で見えない</b><span class="ev-sub">暦 ${fmtHM(it.cal.t)}</span></button>`;
+      return `<button class="ev ${it.body} hidden-ev" data-i="${i}"><span class="ev-name">${ico(it.body, type)} ${name}</span><b>${T.notVisible}</b><span class="ev-sub">${T.cal(fmtHM(it.cal.t))}</span></button>`;
     }
     const diff = it.cal ? Math.round((it.e.t - it.cal.t) / MIN) : null;
-    const diffTxt = diff === null ? '' : diff === 0 ? '暦と同じ' : `暦 ${fmtHM(it.cal.t)}（${diff > 0 ? '+' : ''}${diff}分）`;
+    const diffTxt = diff === null ? '' : diff === 0 ? T.calSame : T.calDiff(fmtHM(it.cal.t), diff);
     const pk = peakAt(it.e, it.body);
-    return `<button class="ev ${it.body}" data-i="${i}"><span class="ev-name">${ico(it.body, type)} ${name}</span><b>${fmtHM(it.e.t)}</b><span class="ev-sub">${dirName(it.e.az)} ${it.e.az.toFixed(0)}°${pk ? '・' + pk : ''}</span><span class="ev-sub">${diffTxt}</span></button>`;
-  }).join('') || '<div class="ev-wait">この日は出没がありません</div>';
+    return `<button class="ev ${it.body}" data-i="${i}"><span class="ev-name">${ico(it.body, type)} ${name}</span><b>${fmtHM(it.e.t)}</b><span class="ev-sub">${dirName(it.e.az)} ${it.e.az.toFixed(0)}°${pk ? (EN ? ' · ' : '・') + pk : ''}</span><span class="ev-sub">${diffTxt}</span></button>`;
+  }).join('') || `<div class="ev-wait">${T.noEvents}</div>`;
   box.querySelectorAll('.ev').forEach((b) => b.addEventListener('click', () => {
     const it = items[+b.dataset.i];
     const target = it.transit || it.e || it.cal;
@@ -814,6 +821,13 @@ $('btn-now').addEventListener('click', () => {
 
 // 再生（分刻みで時間を進める）
 let playRaf = 0, playLast = 0;
+// 言語（変えたら読み込み直す）
+$('opt-lang').value = LANG_PREF;
+$('opt-lang').addEventListener('change', () => {
+  setLangPref($('opt-lang').value);
+  location.reload();
+});
+
 // 再生の速さ（1 秒で何分進むか）。トップページの設定で選び、端末に保存する
 const SPEED_KEY = 'hinode.speed';
 try { const v = localStorage.getItem(SPEED_KEY); if (v && [...$('opt-speed').options].some((o) => o.value === v)) $('opt-speed').value = v; } catch { /* 保存できない環境 */ }
@@ -950,11 +964,11 @@ function onTap(x, y) {
   if (!state.obs) return;
   const sun = sunPosition(state.t, state.obs.lat, state.obs.lon);
   const moon = moonPosition(state.t, state.obs.lat, state.obs.lon);
-  for (const [b, p] of [['太陽', sun], ['月', moon]]) {
+  for (const [b, p] of [[T.sun, sun], [T.moon, moon]]) {
     const q = project(p.az, Math.tan(p.appAlt * DEG));
     if (Math.hypot(q.x - x, q.y - y) < Math.max(24, p.sd * DEG * focal() * 1.3)) {
       sfx('click');
-      toast(`${b}：${dirName(p.az)} ${p.az.toFixed(2)}°・高度 ${p.appAlt.toFixed(2)}°`, '', 2600);
+      toast(T.tapBody(b, dirName(p.az), p.az.toFixed(2), p.appAlt.toFixed(2)), '', 2600);
       return;
     }
   }
@@ -968,7 +982,7 @@ function onTap(x, y) {
   if (best) {
     sfx('click');
     state.selPeak = best;
-    toast(`${best.name}（${best.yomi}）標高${best.elev}m・${dirName(best.az)} ${best.az.toFixed(1)}°・${fmtDist(best.dist)}\nトップの「ダイヤモンド・パール予報」で、太陽・月が山頂に重なる日を探せます`, '', 3800);
+    toast(T.tapPeak(best, dirName(best.az), best.az.toFixed(1), fmtDist(best.dist)), '', 3800);
   } else {
     state.selPeak = null;
   }
@@ -1056,10 +1070,10 @@ async function openTable() {
 }
 async function fillTable() {
   const { y, m } = tableMonth;
-  $('table-title').textContent = `${y}年${m}月`;
+  $('table-title').textContent = T.monthTitle(y, m);
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const t0 = jstMidnight(y, m, 1);
-  $('table-body').innerHTML = '<div class="ev-wait">計算中… <span id="table-prog">0%</span></div>';
+  $('table-body').innerHTML = `<div class="ev-wait">${T.calculating} <span id="table-prog">0%</span></div>`;
   progressFn = (q) => { const el = $('table-prog'); if (el) el.textContent = `${Math.round(q * 100)}%`; };
   const r = await call({ type: 'day', t0, days });
   progressFn = null;
@@ -1067,7 +1081,7 @@ async function fillTable() {
   const cell = (ev, type) => {
     const e = ev.terrain.find((x) => x.type === type), c = ev.cal.find((x) => x.type === type);
     if (!e && !c) return '<td class="na">—</td>';
-    return `<td>${e ? fmtHM(e.t) : '<span class="hid">隠</span>'}<small>${c ? fmtHM(c.t) : '—'}</small></td>`;
+    return `<td>${e ? fmtHM(e.t) : `<span class="hid">${T.hid}</span>`}<small>${c ? fmtHM(c.t) : '—'}</small></td>`;
   };
   const rows = r.days.map((d, i) => {
     const t = t0 + i * DAY;
@@ -1078,7 +1092,7 @@ async function fillTable() {
     const cls = [pp.wd === 0 ? 'sun-day' : pp.wd === 6 ? 'sat-day' : '', t === state.dayT0 ? 'cur' : ''].join(' ');
     return `<tr class="${cls}" data-t="${t}"><th>${pp.d}<small>${WD[pp.wd]}</small></th>${cell(d.sun, 'rise')}${cell(d.sun, 'set')}${cell(d.moon, 'rise')}${cell(d.moon, 'set')}<td class="age">${ic}${age.toFixed(1)}</td></tr>`;
   }).join('');
-  $('table-body').innerHTML = `<table class="month"><thead><tr><th>日</th><th>日の出</th><th>日の入</th><th>月の出</th><th>月の入</th><th>月齢<small>正午</small></th></tr></thead><tbody>${rows}</tbody></table>`;
+  $('table-body').innerHTML = `<table class="month"><thead><tr>${T.tableHead}</tr></thead><tbody>${rows}</tbody></table>`;
   $('table-body').querySelectorAll('canvas.mini-moon').forEach((c) => {
     drawMoonDisc(c.getContext('2d'), 18, 18, 14, +c.dataset.illum, c.dataset.wax === '1' ? 90 : -90);
   });
@@ -1100,11 +1114,11 @@ $('btn-table-close').addEventListener('click', () => { sfx('close'); closeModal(
 function openAlign() {
   // 見えている山（富士山・百名山を上に、近い順）
   const list = state.peaks.filter((p) => p.visible && !p.here && !p.structure && p.dist > 1500)
-    .sort((a, b) => ((b.name === '富士山') - (a.name === '富士山')) || (rank(b) - rank(a)) || (a.dist - b.dist));
+    .sort((a, b) => (isFuji(b) - isFuji(a)) || (rank(b) - rank(a)) || (a.dist - b.dist));
   const sel = $('align-peak');
   sel.innerHTML = list.length
-    ? list.map((p, i) => `<option value="${i}">${p.name}（${p.elev}m・${dirName(p.az)} ${p.az.toFixed(0)}°・${fmtDist(p.dist)}）</option>`).join('')
-    : '<option value="">ここから見える山がありません</option>';
+    ? list.map((p, i) => `<option value="${i}">${T.peakOption(p, dirName(p.az), p.az.toFixed(0), fmtDist(p.dist))}</option>`).join('')
+    : `<option value="">${T.noPeaks}</option>`;
   sel._list = list;
   if (state.selPeak) {
     const i = list.findIndex((p) => p.name === state.selPeak.name && p.lat === state.selPeak.lat);
@@ -1112,7 +1126,7 @@ function openAlign() {
   }
   $('align-body').innerHTML = '';
   $('btn-align-year').classList.add('hidden');
-  $('align-note').textContent = `ここから見える山の山頂に、太陽（ダイヤモンド）や月（パール）が重なる日時を、選んだ日から${Ads.canReward ? '2か月分（広告を見ると1年分）' : '1年分'}探します。タップするとその瞬間へ移動します。`;
+  $('align-note').textContent = T.alignNote(Ads.canReward);
   $('align-modal').classList.remove('hidden');
 }
 // アプリでは、ふだんは 2 か月分を探し、リワード広告を最後まで見ると 1 年分を探せる（Web 版は広告なしで 1 年分）
@@ -1123,8 +1137,8 @@ async function runAlign(days = alignDays()) {
   const p = sel._list && sel._list[+sel.value];
   if (!p) return;
   sfx('click');
-  const span = days >= 365 ? '1年分' : `${Math.round(days / 30.4)}か月分`;
-  $('align-body').innerHTML = `<div class="ev-wait">${span}を計算中…</div>`;
+  const span = T.span(days);
+  $('align-body').innerHTML = `<div class="ev-wait">${T.spanCalc(span)}</div>`;
   const peakAlt = Math.atan(p.tanAlt) / DEG;
   const r = await call({ type: 'align', az: p.az, alt: peakAlt, t0: state.dayT0, days });
   // 地平線（山頂の稜線）より下を通るもの・太陽の高い日中の月は見えにくいので印を付ける
@@ -1133,18 +1147,18 @@ async function runAlign(days = alignDays()) {
     const isSun = a.body === 'sun';
     const ph = isSun ? null : moonPhase(a.t);
     const sunAlt = isSun ? null : sunPosition(a.t, state.obs.lat, state.obs.lon).alt;
-    const name = isSun ? 'ダイヤモンド' : 'パール';
-    const center = Math.abs(a.dAlt) < a.sd * 0.4 ? '◎ 山頂のほぼ真上' : a.dAlt > 0 ? '○ 少し上を通る' : '○ 少し下（山頂にかかる）';
+    const name = isSun ? T.diamond : T.pearl;
+    const center = Math.abs(a.dAlt) < a.sd * 0.4 ? T.center : a.dAlt > 0 ? T.above : T.below;
     let note = '';
     if (!isSun) {
-      if (ph.illum < 0.08) note = '・新月前後で見えない';
-      else if (sunAlt > -4) note = '・明るい空';
+      if (ph.illum < 0.08) note = T.newMoonNote;
+      else if (sunAlt > -4) note = T.brightSky;
     }
-    return `<li data-t="${a.t}" class="${isSun ? 'sun' : 'moon'}"><span class="a-date">${pp.y}/${pp.m}/${pp.d}（${WD[pp.wd]}）<b>${fmtHM(a.t)}</b></span><span class="a-kind">${name}${shortName(p)}・${a.rising ? '昇る' : '沈む'}</span><span class="a-sub">${center}${isSun ? '' : `・月齢${moonAge(a.t).toFixed(1)}`}${note}</span></li>`;
+    return `<li data-t="${a.t}" class="${isSun ? 'sun' : 'moon'}"><span class="a-date">${T.alignDate(pp, WD[pp.wd], fmtHM(a.t))}</span><span class="a-kind">${T.alignKind(name, shortName(p), a.rising)}</span><span class="a-sub">${center}${isSun ? '' : T.moonAgeShort(moonAge(a.t).toFixed(1))}${note}</span></li>`;
   });
   $('align-body').innerHTML = rows.length
     ? `<ul class="align-list">${rows.join('')}</ul>`
-    : `<div class="ev-wait">${span}の間に山頂に重なる日はありません${days >= 365 ? '（太陽・月が通らない方角です）' : ''}</div>`;
+    : `<div class="ev-wait">${T.alignNone(span, days >= 365)}</div>`;
   $('btn-align-year').classList.toggle('hidden', !(Ads.canReward && days < 365));
   if (rows.length) sfx('found');
   $('align-body').querySelectorAll('li[data-t]').forEach((li) => li.addEventListener('click', () => {
@@ -1161,7 +1175,7 @@ $('btn-align-year').addEventListener('click', async () => {
   sfx('click');
   const r = await Ads.showRewarded();
   if (r === 'rewarded') runAlign(ALIGN_YEAR_DAYS);
-  else if (r === 'unavailable') toast('いまは広告を読み込めませんでした。しばらくしてからお試しください', 'bad', 3000);
+  else if (r === 'unavailable') toast(T.adUnavailable, 'bad', 3000);
 });
 $('btn-align-close').addEventListener('click', () => { sfx('close'); closeModal('align-modal'); });
 for (const id of ['table-modal', 'align-modal']) {
@@ -1191,7 +1205,7 @@ $('btn-labels').addEventListener('click', () => {
 });
 function updateBgmButton() {
   $('btn-bgm').classList.toggle('on', bgmOn);
-  $('btn-bgm').textContent = bgmOn ? '♪ BGM' : '♪ オフ';
+  $('btn-bgm').textContent = bgmOn ? T.bgmOn : T.bgmOff;
 }
 $('btn-bgm').addEventListener('click', () => {
   bgmOn = !bgmOn;
@@ -1231,7 +1245,7 @@ function readHash() {
   const lat = +q.get('lat'), lon = +q.get('lon');
   if (!q.get('lat') || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   return {
-    lat, lon, name: q.get('n') || '共有された地点', summit: +q.get('s') || 0,
+    lat, lon, name: q.get('n') || T.sharedPlace, summit: +q.get('s') || 0,
     d: q.get('d'), t: q.get('t'), h: +q.get('h') || 0, az: +q.get('az'), fov: +q.get('fov'), pt: +q.get('pt'),
   };
 }
@@ -1240,16 +1254,16 @@ $('btn-share').addEventListener('click', async () => {
   updateHash();
   const url = IS_APP ? SHARE_BASE + location.hash : location.href;
   const p = jstParts(state.t);
-  const text = `${state.obs.name || '選択地点'}の${p.m}月${p.d}日 ${fmtHM(state.t)} の空 #日の出月の出シミュレーター`;
+  const text = T.shareText(state.obs.name || T.selectedPlace, p, fmtHM(state.t));
   if (Plugins.Share) {
     // アプリでは Android の共有メニューを出す
-    try { await Plugins.Share.share({ title: '日の出・月の出シミュレーター', text, url, dialogTitle: '共有' }); } catch { /* 閉じた */ }
+    try { await Plugins.Share.share({ title: T.appName, text, url, dialogTitle: T.shareDialog }); } catch { /* 閉じた */ }
     return;
   }
   if (navigator.share) {
-    try { await navigator.share({ title: '日の出・月の出シミュレーター', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.share({ title: T.appName, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
-  try { await navigator.clipboard.writeText(url); toast('この画面のURLをコピーしました', 'good', 2000); }
+  try { await navigator.clipboard.writeText(url); toast(T.urlCopied, 'good', 2000); }
   catch { toast(url, '', 5000); }
 });
 
@@ -1309,15 +1323,15 @@ function followStep() {
   followRaf = requestAnimationFrame(followStep);
 }
 // 手で方角を変えたら追従をやめる
-function stopFollow() { if (follow) setFollow(false, 'コンパス追従をオフにしました'); }
+function stopFollow() { if (follow) setFollow(false, T.followOff); }
 $('btn-follow').addEventListener('click', async () => {
   if (follow) { sfx('off'); setFollow(false); return; }
   // 許可の結果ではなく、方位の値が実際に届くかで判断する
   enableCompass();
   const h = await readHeading(2500);
-  if (h === null) { sfx('error'); toast('この端末ではコンパス（方位センサー）が使えません', 'bad', 3000); return; }
+  if (h === null) { sfx('error'); toast(T.noCompass, 'bad', 3000); return; }
   sfx('on');
-  setFollow(true, 'コンパス追従：端末を向けた方角を表示します');
+  setFollow(true, T.followOn);
 });
 
 // ---------------- 開始・地点の読み込み ----------------
@@ -1329,9 +1343,9 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
   $('loading').classList.remove('hidden');
   $('loading-bar').style.width = '0%';
   // 見始めるときに全画面広告（読み込めていなければ最大 3 秒だけ待ち、だめなら出さない）
-  $('loading-text').textContent = '準備中…';
+  $('loading-text').textContent = T.preparing;
   await Ads.showInterstitial(3000);
-  $('loading-text').textContent = `${name ? name + ' の' : ''}地形データを読み込み中…`;
+  $('loading-text').textContent = T.loadingTerrain(name);
   stopPlay();
   if (follow) setFollow(false);
   progressFn = (p) => { $('loading-bar').style.width = `${Math.round(p * 100)}%`; };
@@ -1347,16 +1361,16 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
       const i = HEIGHTS.indexOf(v.h);
       if (i >= 0) { state.hIdx = i; state.hOverride = null; } else state.hOverride = v.h;
     }
-    $('loading-text').textContent = '見える山を計算中…';
+    $('loading-text').textContent = T.calcPeaks;
     const pk = await call({ type: 'peaks', h0: h0() });
     state.peaks = pk.peaks;
     state.selPeak = null;
-    $('loading-text').textContent = '地平線（山の稜線）を計算中…';
+    $('loading-text').textContent = T.calcHorizon;
     $('loading-bar').style.width = '0%';
     const hz = await call({ type: 'horizon', h0: h0() });
     state.horizon = hz.horizon;
     fixPeaks();
-    $('loading-text').textContent = '日の出・月の出を計算中…';
+    $('loading-text').textContent = T.calcRise;
 
     // 日付と時刻
     const startDay = parseDate(v && v.d) ?? parseDate($('start-date').value) ?? todayT0();
@@ -1416,24 +1430,24 @@ async function startAt(lat, lon, { name = '', summit = 0, snapped = false, deck 
     renderEvents();
     setTime(state.t);
     const notes = [];
-    if (snapped) notes.push(`${name} 山頂（標高${summit}m）から見ています`);
-    if (deck) notes.push(`${name}（地上${deck}m）から見ています`);
-    if (urbanStart) notes.push('市街地のため、ビルの屋上（地上30m）から見ています。▼で地上に降りられます');
-    if (compassStart) notes.push('端末が向いている方角から表示しています。「コンパス」で向きに追従します');
-    if (compassMissing) notes.push('コンパスが使えないため、太陽・月の方角から表示しています');
-    notes.push('下のスライダーで時刻、▶で分刻みに再生できます');
+    if (snapped) notes.push(T.noteSummit(name, summit));
+    if (deck) notes.push(T.noteDeck(name, deck));
+    if (urbanStart) notes.push(T.noteUrban);
+    if (compassStart) notes.push(T.noteCompass);
+    if (compassMissing) notes.push(T.noteNoCompass);
+    notes.push(T.noteSlider);
     if (thenAlign) { sfx('open'); openAlign(); } else toast(notes.join('\n'), '', 4500);
   } catch (err) {
     progressFn = null;
     $('loading').classList.add('hidden');
-    toast(`読み込みに失敗しました: ${err.message}`, 'bad', 4000);
+    toast(T.loadFailed(err.message), 'bad', 4000);
     if (!state.obs || $('timebar').classList.contains('hidden')) $('start').classList.remove('hidden');
   }
 }
 
 function getPosition() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error('位置情報が使えません')); return; }
+    if (!navigator.geolocation) { reject(new Error(T.noGeo)); return; }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
       (e) => reject(e), { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
@@ -1457,13 +1471,13 @@ $('btn-start').addEventListener('click', async () => {
   enableCompass();
   try {
     const { lat, lon } = await getPosition();
-    if (!inJapan(lat, lon)) { toast('現在地が日本国外のため、地点を選んでください', 'bad', 3500); openPicker(); return; }
+    if (!inJapan(lat, lon)) { toast(T.outsideJapan, 'bad', 3500); openPicker(); return; }
     const sm = nearbySummit(lat, lon);
     if (sm) startAt(sm.lat, sm.lon, { name: uniqueName(sm), summit: sm.elev, snapped: true, useCompass: true });
-    else startAt(lat, lon, { name: '現在地', useCompass: true });
+    else startAt(lat, lon, { name: T.currentPlace, useCompass: true });
   } catch {
     sfx('error');
-    toast('現在地を取得できませんでした。地点を選んでください', 'bad', 3500);
+    toast(T.noPosition, 'bad', 3500);
     openPicker();
   }
 });
@@ -1476,7 +1490,7 @@ $('start-date').addEventListener('change', () => sfx('click'));
   if (sh) {
     const b = $('btn-start-shared');
     b.classList.remove('hidden');
-    b.textContent = `共有された地点で見る（${sh.name}）`;
+    b.textContent = T.sharedStart(sh.name);
     b.addEventListener('click', () => {
       audio.unlock(); sfx('start'); initWorker(); enableCompass();
       startAt(sh.lat, sh.lon, { name: sh.name, summit: sh.summit, view: sh });
@@ -1490,18 +1504,18 @@ let map = null, marker = null, picked = null;
 let alignMode = false;
 function openPicker(forAlign = false) {
   alignMode = forAlign;
-  $('picker-info').textContent = forAlign ? '予報を出す地点（見る場所）を地図で選んでください' : '地図をタップして地点を選択';
+  $('picker-info').textContent = forAlign ? T.pickAlign : T.pickTap;
   $('picker').classList.remove('hidden');
   if (!map) {
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView([36.2, 138.2], 6);
     L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
-      maxZoom: 18, attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>',
+      maxZoom: 18, attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">' + T.gsiTiles + '</a>',
     }).addTo(map);
     const icon = L.divIcon({ className: '', html: '<div style="width:16px;height:16px;border-radius:50%;background:#e76f51;border:3px solid #fff;box-shadow:0 1px 4px #0008"></div>', iconSize: [16, 16] });
     marker = L.marker([0, 0], { icon });
     for (const m of MOUNTAINS) {
       L.circleMarker([m.lat, m.lon], { radius: 2 + rank(m) * 0.7, color: ['#6c757d', '#52796f', '#2a6f97', '#c1121f'][rank(m)], weight: 1, fillOpacity: 0.8 })
-        .bindTooltip(`${m.name} ${m.elev}m${CLASS_LABEL[m.cls] ? '（' + CLASS_LABEL[m.cls] + '）' : ''}`).on('click', () => pick(m.lat, m.lon, uniqueName(m), m.elev)).addTo(map);
+        .bindTooltip(T.peakTooltip(m, CLASS_LABEL[m.cls])).on('click', () => pick(m.lat, m.lon, uniqueName(m), m.elev)).addTo(map);
     }
     map.on('click', (e) => pick(e.latlng.lat, e.latlng.lng, '', false));
   }
@@ -1513,7 +1527,7 @@ function pick(lat, lon, name, summit, deck = 0) {
   picked = { lat, lon, name, summit, deck };
   marker.setLatLng([lat, lon]).addTo(map);
   if (!deck) $('deck-select').value = '';
-  $('picker-info').textContent = deck ? `${name}（地上${deck}m）` : `${name ? name + (summit ? ' 山頂' : '') + ' ' : ''}(${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+  $('picker-info').textContent = deck ? T.pickDeck(name, deck) : `${name ? name + (summit ? T.pickSummit : '') + ' ' : ''}(${lat.toFixed(4)}, ${lon.toFixed(4)})`;
   $('btn-picker-ok').disabled = false;
 }
 $('btn-picker-ok').addEventListener('click', () => {
@@ -1521,7 +1535,7 @@ $('btn-picker-ok').addEventListener('click', () => {
   audio.unlock();
   sfx('start');
   enableCompass();
-  startAt(picked.lat, picked.lon, { name: picked.name || '選択地点', summit: picked.summit, deck: picked.deck, thenAlign: alignMode });
+  startAt(picked.lat, picked.lon, { name: picked.name || T.selectedPlace, summit: picked.summit, deck: picked.deck, thenAlign: alignMode });
 });
 $('btn-picker-cancel').addEventListener('click', () => {
   sfx('close');
@@ -1535,15 +1549,15 @@ $('btn-here').addEventListener('click', async () => {
     const sm = nearbySummit(lat, lon);
     map.setView([lat, lon], 13);
     if (sm) pick(sm.lat, sm.lon, uniqueName(sm), sm.elev);
-    else pick(lat, lon, '現在地', false);
+    else pick(lat, lon, T.currentPlace, false);
   } catch {
     sfx('error');
-    toast('現在地を取得できませんでした', 'bad');
+    toast(T.noPositionShort, 'bad');
   }
 });
 $('search').addEventListener('change', (e) => {
   const v = e.target.value.trim();
-  const m = MOUNTAINS.find((x) => uniqueName(x) === v) || MOUNTAINS.find((x) => x.name === v || x.yomi === v);
+  const m = MOUNTAINS.find((x) => uniqueName(x) === v) || MOUNTAINS.find((x) => x.name === v || x.yomi === v || x.ja === v || (x.name || '').toLowerCase() === v.toLowerCase());
   if (!m) return;
   map.setView([m.lat, m.lon], 12);
   pick(m.lat, m.lon, uniqueName(m), m.elev);
@@ -1551,8 +1565,8 @@ $('search').addEventListener('change', (e) => {
 });
 {
   const areas = [...new Set(OBSERVATORIES.map((o) => o.area))];
-  $('deck-select').innerHTML = '<option value="">展望台から見る…</option>' + areas.map((a) =>
-    `<optgroup label="${a}">${OBSERVATORIES.map((o, i) => (o.area === a ? `<option value="${i}">${o.name}（${o.deck}m）</option>` : '')).join('')}</optgroup>`).join('');
+  $('deck-select').innerHTML = `<option value="">${T.deckPrompt}</option>` + areas.map((a) =>
+    `<optgroup label="${a}">${OBSERVATORIES.map((o, i) => (o.area === a ? `<option value="${i}">${T.deckOption(o.name, o.deck)}</option>` : '')).join('')}</optgroup>`).join('');
 }
 $('deck-select').addEventListener('change', (e) => {
   if (e.target.value === '') return;
@@ -1560,7 +1574,7 @@ $('deck-select').addEventListener('change', (e) => {
   map.setView([o.lat, o.lon], 14);
   pick(o.lat, o.lon, o.name, 0, o.deck);
 });
-$('peak-list').innerHTML = MOUNTAINS.map((m) => `<option value="${uniqueName(m)}">${m.yomi} ${m.elev}m</option>`).join('');
+$('peak-list').innerHTML = MOUNTAINS.map((m) => `<option value="${uniqueName(m)}">${T.peakListOpt(m)}</option>`).join('');
 $('opt-source').addEventListener('change', () => initWorker());
 $('opt-snow').addEventListener('change', () => invalidate());
 $('opt-buildings').addEventListener('change', () => {

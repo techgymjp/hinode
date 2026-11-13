@@ -252,7 +252,7 @@ function haze(c, dist) {
 function structureColor(s, lateral, dist, out) {
   // 日の当たる側を明るく
   const side = lateral * Math.sin((SUN_AZ / DEG - s.az) * DEG) > 0 ? 1 : 0.78;
-  if (s.name === '東京タワー') { out[0] = 220; out[1] = 80; out[2] = 50; }
+  if ((s.ja || s.name) === '東京タワー') { out[0] = 220; out[1] = 80; out[2] = 50; }
   else if (s.type === 'tower') { out[0] = 225; out[1] = 228; out[2] = 232; }
   else { out[0] = 150; out[1] = 166; out[2] = 182; }
   out[0] *= side; out[1] *= side; out[2] *= side;
