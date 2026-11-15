@@ -221,3 +221,9 @@ button.reward { margin: 8px 12px 0; padding: 10px; background: #ffd166; color: #
 /* Android アプリ: 画面の下中央のバナー広告（高さ 50dp）と重ならないように */
 body.app #start { padding-bottom: 76px; }
 body.app .modal { padding-bottom: 62px; }
+
+/* Web 版だけ: Google Play のアプリへのリンク */
+.play-link {
+  display: block; padding: 12px; border-radius: 999px; text-decoration: none; font-weight: 700;
+  color: #1d2b3a; background: #ffd166; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}

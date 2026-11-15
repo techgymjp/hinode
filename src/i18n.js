@@ -219,6 +219,7 @@ const STATIC_EN = [
   ['#start .date-pick', 'first-text', 'Date '],
   ['#btn-start', 'text', 'View from here'], ['#btn-start-place', 'text', 'Choose a point'],
   ['#btn-start-align', 'text', '💎 Diamond & Pearl Forecast'],
+  ['#play-link', 'text', '▶ Android app (Google Play)'],
   ['#start .note', 'html', '"View from here" starts in the direction your phone faces (for today\'s date).<br>Drag to turn and tilt, pinch (or wheel) to zoom, ▲▼ to change your eye height.'],
   ['.settings summary', 'text', 'Settings'],
   ['#opt-lang', 'label-text', 'Language'],
