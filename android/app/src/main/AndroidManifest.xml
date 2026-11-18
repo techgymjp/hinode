@@ -40,4 +40,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- 画面は縦向きに固定しているが、縦・横の画面を持つことは必須ではない
+         （必須のままだと、Google Play でタブレット・Chromebook・テレビなどに配信されない） -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 </manifest>
